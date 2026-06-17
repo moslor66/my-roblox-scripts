@@ -1,0 +1,241 @@
+-- ========================================================================= --
+-- MODERN AUTO COLLECT GUI (NUMBER DETECTOR + ANTI-STUCK FIX)
+-- ========================================================================= --
+
+local Settings = {
+    TeleportDelay = 0.1,  
+    WaitIfEmpty = 0.5,    
+    Colors = {
+        Background = Color3.fromRGB(30, 30, 35),
+        TopBar     = Color3.fromRGB(40, 40, 45),
+        Text       = Color3.fromRGB(245, 245, 245),
+        AccentOn   = Color3.fromRGB(70, 180, 100),
+        AccentOff  = Color3.fromRGB(200, 70, 70),
+        CloseBtn   = Color3.fromRGB(220, 60, 60),
+        MinBtn     = Color3.fromRGB(150, 150, 150)
+    }
+}
+
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local LocalPlayer = Players.LocalPlayer
+
+local isAutoCollectOn = false
+local farmConnection = nil
+local guiParent = LocalPlayer:WaitForChild("PlayerGui")
+
+if guiParent:FindFirstChild("ModernNumberFarmUI") then
+    guiParent.ModernNumberFarmUI:Destroy()
+end
+
+-- [1. PEMBUATAN UI] ----------------------------------------------------------
+-- (Sama seperti sebelumnya)
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "ModernNumberFarmUI"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = guiParent
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 260, 0, 140)
+MainFrame.Position = UDim2.new(0.5, -130, 0.5, -70)
+MainFrame.BackgroundColor3 = Settings.Colors.Background
+MainFrame.BorderSizePixel = 0
+MainFrame.ClipsDescendants = true
+MainFrame.Active = true
+MainFrame.Parent = ScreenGui
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8)
+
+local TopBar = Instance.new("Frame")
+TopBar.Size = UDim2.new(1, 0, 0, 35)
+TopBar.BackgroundColor3 = Settings.Colors.TopBar
+TopBar.BorderSizePixel = 0
+TopBar.Parent = MainFrame
+Instance.new("UICorner", TopBar).CornerRadius = UDim.new(0, 8)
+
+local TopBarBottom = Instance.new("Frame")
+TopBarBottom.Size = UDim2.new(1, 0, 0, 10)
+TopBarBottom.Position = UDim2.new(0, 0, 1, -10)
+TopBarBottom.BackgroundColor3 = Settings.Colors.TopBar
+TopBarBottom.BorderSizePixel = 0
+TopBarBottom.Parent = TopBar
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, -80, 1, 0)
+Title.Position = UDim2.new(0, 15, 0, 0)
+Title.BackgroundTransparency = 1
+Title.Text = "Auto Farm (Number)"
+Title.TextColor3 = Settings.Colors.Text
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 14
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = TopBar
+
+local MinBtn = Instance.new("TextButton")
+MinBtn.Size = UDim2.new(0, 35, 0, 35)
+MinBtn.Position = UDim2.new(1, -70, 0, 0)
+MinBtn.BackgroundTransparency = 1
+MinBtn.Text = "-"
+MinBtn.TextColor3 = Settings.Colors.MinBtn
+MinBtn.Font = Enum.Font.GothamBold
+MinBtn.TextSize = 20
+MinBtn.Parent = TopBar
+
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Size = UDim2.new(0, 35, 0, 35)
+CloseBtn.Position = UDim2.new(1, -35, 0, 0)
+CloseBtn.BackgroundTransparency = 1
+CloseBtn.Text = "X"
+CloseBtn.TextColor3 = Settings.Colors.CloseBtn
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.TextSize = 14
+CloseBtn.Parent = TopBar
+
+local ToggleBtn = Instance.new("TextButton")
+ToggleBtn.Size = UDim2.new(1, -30, 0, 45)
+ToggleBtn.Position = UDim2.new(0, 15, 0, 65)
+ToggleBtn.BackgroundColor3 = Settings.Colors.AccentOff
+ToggleBtn.Text = "Auto Collect: OFF"
+ToggleBtn.TextColor3 = Settings.Colors.Text
+ToggleBtn.Font = Enum.Font.GothamSemibold
+ToggleBtn.TextSize = 14
+ToggleBtn.AutoButtonColor = false
+ToggleBtn.Parent = MainFrame
+Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(0, 6)
+
+-- [2. LOGIKA DRAGGING] -------------------------------------------------------
+local dragging, dragInput, dragStart, startPos
+TopBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = MainFrame.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then dragging = false end
+        end)
+    end
+end)
+TopBar.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+UserInputService.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        local delta = input.Position - dragStart
+        MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+
+-- [3. FIX: SISTEM BLACKLIST & DETEKSI] ---------------------------------------
+-- Tabel ini akan menyimpan koin mana saja yang baru disentuh
+local ignoreTokens = {}
+
+local function GetNearestNumberToken()
+    local character = LocalPlayer.Character
+    if not character or not character:FindFirstChild("HumanoidRootPart") then return nil end
+    
+    local charPos = character.HumanoidRootPart.Position
+    local nearestToken = nil
+    local shortestDistance = math.huge
+
+    pcall(function()
+        for _, obj in pairs(workspace:GetDescendants()) do
+            -- Cek apakah nama objek itu angka DAN belum masuk daftar hitam (ignoreTokens)
+            if tonumber(obj.Name) ~= nil and not ignoreTokens[obj] then
+                if obj:IsA("BasePart") or obj:IsA("Model") then
+                    local targetPart = obj:IsA("Model") and obj.PrimaryPart or obj
+                    
+                    if targetPart and targetPart:IsA("BasePart") then
+                        -- FIX TAMBAHAN: Jangan ambil koin yang tembus pandang / hilang
+                        if targetPart.Transparency < 1 then
+                            local distance = (charPos - targetPart.Position).Magnitude
+                            if distance < shortestDistance then
+                                shortestDistance = distance
+                                nearestToken = targetPart
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end)
+    
+    return nearestToken
+end
+
+-- [4. LOGIKA AUTO COLLECT UTAMA] ---------------------------------------------
+local function HandleAutoCollect()
+    if isAutoCollectOn then
+        farmConnection = task.spawn(function()
+            while isAutoCollectOn do
+                local targetToken = GetNearestNumberToken()
+                local character = LocalPlayer.Character
+                
+                if targetToken and character and character:FindFirstChild("HumanoidRootPart") then
+                    local hrp = character.HumanoidRootPart
+                    hrp.CFrame = targetToken.CFrame
+
+                    if firetouchinterest then
+                        firetouchinterest(hrp, targetToken, 0)
+                        task.wait(0.01)
+                        firetouchinterest(hrp, targetToken, 1)
+                    end
+                    
+                    -- [ INI KUNCI FIX-NYA ]
+                    -- Masukkan token ke daftar hitam agar dilewati pada loop berikutnya
+                    ignoreTokens[targetToken] = true
+                    
+                    -- Hapus token secara paksa di layar kita agar pasti cari yang lain
+                    if targetToken.Parent then targetToken:Destroy() end
+                    
+                    -- Hapus dari daftar hitam setelah 3 detik (berjaga-jaga jika gamenya me-respawn koinnya)
+                    task.delay(3, function()
+                        ignoreTokens[targetToken] = nil
+                    end)
+
+                    task.wait(Settings.TeleportDelay)
+                else
+                    task.wait(Settings.WaitIfEmpty)
+                end
+            end
+        end)
+    else
+        if farmConnection then
+            task.cancel(farmConnection)
+            farmConnection = nil
+        end
+    end
+end
+
+-- [5. LOGIKA TOMBOL UI] ------------------------------------------------------
+local isMinimized = false
+MinBtn.Activated:Connect(function()
+    isMinimized = not isMinimized
+    if isMinimized then
+        MainFrame.Size = UDim2.new(0, 260, 0, 35)
+        ToggleBtn.Visible = false
+        MinBtn.Text = "+"
+    else
+        MainFrame.Size = UDim2.new(0, 260, 0, 140)
+        ToggleBtn.Visible = true
+        MinBtn.Text = "-"
+    end
+end)
+
+CloseBtn.Activated:Connect(function()
+    isAutoCollectOn = false
+    HandleAutoCollect()
+    ScreenGui:Destroy()
+end)
+
+ToggleBtn.Activated:Connect(function()
+    isAutoCollectOn = not isAutoCollectOn
+    if isAutoCollectOn then
+        ToggleBtn.Text = "Auto Collect: ON"
+        ToggleBtn.BackgroundColor3 = Settings.Colors.AccentOn
+    else
+        ToggleBtn.Text = "Auto Collect: OFF"
+        ToggleBtn.BackgroundColor3 = Settings.Colors.AccentOff
+    end
+    HandleAutoCollect()
+end)
