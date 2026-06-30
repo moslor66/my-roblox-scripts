@@ -1,0 +1,188 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+local lp = Players.LocalPlayer
+
+-- [[ SETUP UI ]] --
+local Gui = Instance.new("ScreenGui", (gethui and gethui()) or game:GetService("CoreGui"))
+local Main = Instance.new("Frame", Gui)
+Main.Size, Main.Position = UDim2.new(0, 200, 0, 245), UDim2.new(0.5, -100, 0.5, -75)
+Main.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+Main.ClipsDescendants = true -- Penting untuk animasi minimize
+Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 8)
+Main.Active = true; Main.Draggable = true
+
+-- Title
+local Title = Instance.new("TextLabel", Main)
+Title.Size = UDim2.new(1, -60, 0, 30); Title.BackgroundTransparency = 1
+Title.Text = "  PRO HUB"; Title.TextColor3 = Color3.new(1,1,1); Title.Font = Enum.Font.GothamBold; Title.TextXAlignment = Enum.TextXAlignment.Left
+
+-- Tombol Minimize (_)
+local MinBtn = Instance.new("TextButton", Main)
+MinBtn.Text = "_"; MinBtn.Size = UDim2.new(0, 30, 0, 30); MinBtn.Position = UDim2.new(1, -60, 0, -5)
+MinBtn.BackgroundTransparency = 1; MinBtn.TextColor3 = Color3.new(1,1,1); MinBtn.Font = Enum.Font.GothamBold
+local minimized = false
+MinBtn.MouseButton1Click:Connect(function() 
+    minimized = not minimized
+    if minimized then
+        Main.Size = UDim2.new(0, 200, 0, 30) -- Mengecil jadi hanya bar atas
+    else
+        Main.Size = UDim2.new(0, 200, 0, 245) -- Kembali ke ukuran semula
+    end
+end)
+
+-- Tombol Close (X)
+local CloseBtn = Instance.new("TextButton", Main)
+CloseBtn.Text = "X"; CloseBtn.Size = UDim2.new(0, 30, 0, 30); CloseBtn.Position = UDim2.new(1, -30, 0, 0)
+CloseBtn.BackgroundTransparency = 1; CloseBtn.TextColor3 = Color3.fromRGB(255, 80, 80); CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.MouseButton1Click:Connect(function() 
+    Gui:Destroy() 
+end)
+
+-- [[ FITUR UTAMA (SCRIPT ASLI ANDA) ]] --
+local Modifiers = {God = false, Sprint = false, KillAura = false, AutoInteract = false, Hover = false}
+
+-- 1. God Mode
+task.spawn(function()
+    while true do
+        if Modifiers.God and lp.Character and lp.Character:FindFirstChild("Humanoid") then
+            lp.Character.Humanoid.Health = 1000
+        end
+        task.wait(0.1)
+    end
+end)
+
+-- 2. Sprint
+RunService.Heartbeat:Connect(function()
+    local char = lp.Character
+    if char and char:FindFirstChild("Humanoid") then
+        if Modifiers.Sprint then
+            char.Humanoid.WalkSpeed = 50
+        elseif char.Humanoid.WalkSpeed == 50 then
+            char.Humanoid.WalkSpeed = 16
+        end
+    end
+end)
+
+-- 3. Kill Aura
+task.spawn(function()
+    while true do
+        if Modifiers.KillAura and lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then
+            local myPos = lp.Character.HumanoidRootPart.Position
+            for _, v in pairs(Workspace:GetDescendants()) do
+                if v:IsA("Model") and v:FindFirstChild("Humanoid") and v ~= lp.Character then
+                    local targetRoot = v:FindFirstChild("HumanoidRootPart")
+                    if targetRoot and (targetRoot.Position - myPos).Magnitude < 20 then
+                        v.Humanoid.Health = 0
+                    end
+                end
+            end
+        end
+        task.wait(0.2)
+    end
+end)
+
+-- 4. Auto Interact (E No Cooldown)
+task.spawn(function()
+    while true do
+        if Modifiers.AutoInteract then
+            for _, obj in pairs(Workspace:GetDescendants()) do
+                if obj:IsA("ProximityPrompt") then
+                    fireproximityprompt(obj) 
+                end
+            end
+        end
+        task.wait(0.1)
+    end
+end)
+
+-- 5. Hover & Auto Aim (DIROMBAK TOTAL - ANTI LICIN & PASTI KENA)
+local hoverVel, hoverGyro = nil, nil
+RunService.Heartbeat:Connect(function()
+    local char = lp.Character
+    if char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChild("Humanoid") then
+        local root = char.HumanoidRootPart
+        local hum = char.Humanoid
+
+        if Modifiers.Hover then
+            -- MATIKAN FISIKA BAWAAN AGAR TIDAK MUTER-MUTER
+            hum.PlatformStand = true
+            hum.AutoRotate = false
+
+            if not hoverVel then
+                hoverVel = Instance.new("BodyVelocity")
+                -- Kunci semua arah (X,Y,Z) agar tidak meluncur menjauh
+                hoverVel.MaxForce = Vector3.new(math.huge, math.huge, math.huge) 
+                hoverVel.Parent = root
+            end
+            if not hoverGyro then
+                hoverGyro = Instance.new("BodyGyro")
+                hoverGyro.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+                hoverGyro.P = 15000
+                hoverGyro.Parent = root
+            end
+
+            -- LOGIKA AUTO AIM: Cari musuh terdekat
+            local closest = nil
+            local minDist = 150 -- Cari musuh dalam radius 150 stud
+            local myPos = root.Position
+
+            for _, v in pairs(Workspace:GetDescendants()) do
+                if v:IsA("Model") and v:FindFirstChild("Humanoid") and v ~= char and v.Humanoid.Health > 0 then
+                    local targetRoot = v:FindFirstChild("HumanoidRootPart")
+                    if targetRoot then
+                        local dist = (targetRoot.Position - myPos).Magnitude
+                        if dist < minDist then
+                            minDist = dist
+                            closest = targetRoot
+                        end
+                    end
+                end
+            end
+
+            if closest then
+                -- Jika ada musuh, terbang tepat ke atas kepalanya (tinggi 12 stud)
+                -- (Karena jarak Kill Aura Anda 20 stud, tinggi 12 stud PASTI KENA)
+                local targetPos = closest.Position + Vector3.new(0, 12, 0)
+                
+                -- Terbang mengejar musuh secara mulus
+                local dir = (targetPos - root.Position)
+                if dir.Magnitude > 1 then
+                    hoverVel.Velocity = dir.Unit * 35 -- Kecepatan terbang
+                else
+                    hoverVel.Velocity = Vector3.new(0, 0, 0)
+                end
+                
+                -- Hadapkan wajah / senjata tepat ke arah musuh (Auto Aim)
+                hoverGyro.CFrame = CFrame.new(root.Position, closest.Position)
+            else
+                -- Jika tidak ada musuh, diam di tempat (bisa jalan pakai WASD)
+                hoverVel.Velocity = hum.MoveDirection * 30
+                hoverGyro.CFrame = CFrame.new(root.Position, root.Position - Vector3.new(0, 10, 0)) * CFrame.Angles(math.rad(-90), 0, 0)
+            end
+        else
+            -- KEMBALIKAN KE NORMAL
+            hum.PlatformStand = false
+            hum.AutoRotate = true
+            if hoverVel then hoverVel:Destroy(); hoverVel = nil end
+            if hoverGyro then hoverGyro:Destroy(); hoverGyro = nil end
+        end
+    end
+end)
+
+-- [[ UI TOGGLE ]] --
+local function AddBtn(text, y, callback)
+    local b = Instance.new("TextButton", Main)
+    b.Size, b.Position = UDim2.new(1, -20, 0, 30), UDim2.new(0, 10, 0, y)
+    b.Text = text; b.BackgroundColor3 = Color3.fromRGB(40,40,40); b.TextColor3 = Color3.new(1,1,1)
+    b.MouseButton1Click:Connect(function() 
+        local state = callback()
+        b.BackgroundColor3 = state and Color3.fromRGB(0, 80, 0) or Color3.fromRGB(40,40,40)
+    end)
+end
+
+AddBtn("God Mode", 40, function() Modifiers.God = not Modifiers.God return Modifiers.God end)
+AddBtn("Sprint", 80, function() Modifiers.Sprint = not Modifiers.Sprint return Modifiers.Sprint end)
+AddBtn("Kill Aura", 120, function() Modifiers.KillAura = not Modifiers.KillAura return Modifiers.KillAura end)
+AddBtn("Auto Interact", 160, function() Modifiers.AutoInteract = not Modifiers.AutoInteract return Modifiers.AutoInteract end)
+AddBtn("Hover Aim Down", 200, function() Modifiers.Hover = not Modifiers.Hover return Modifiers.Hover end)
