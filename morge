@@ -1,68 +1,46 @@
 -- ==================================================
--- 👻 THE MORGUE SHIFT - PRO HUB
+-- 🏥 THE MORGUE SHIFT - TRANSPORTER HUB (FIXED)
 -- ==================================================
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 local CoreGui = game:GetService("CoreGui")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local TextChatService = game:GetService("TextChatService")
 local lp = Players.LocalPlayer
+local mouse = lp:GetMouse()
 
--- [[ 1. SETUP UI MINIMALIS ]]
-local Gui = Instance.new("ScreenGui")
-Gui.Name = "MorgueHub"
-Gui.Parent = (gethui and gethui()) or CoreGui
+-- [[ 1. UI SETUP PRO ]]
+local Gui = Instance.new("ScreenGui"); Gui.Name = "MorgueTransport"; Gui.Parent = (gethui and gethui()) or CoreGui
+local Main = Instance.new("Frame", Gui); Main.Size = UDim2.new(0, 240, 0, 270); Main.Position = UDim2.new(0.5, -120, 0.5, -135); Main.BackgroundColor3 = Color3.fromRGB(20, 20, 25); Main.Active = true; Main.Draggable = true; Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 8)
+local Header = Instance.new("Frame", Main); Header.Size = UDim2.new(1, 0, 0, 30); Header.BackgroundColor3 = Color3.fromRGB(35, 35, 45); Instance.new("UICorner", Header).CornerRadius = UDim.new(0, 8)
+local Title = Instance.new("TextLabel", Header); Title.Size = UDim2.new(1, -60, 1, 0); Title.Position = UDim2.new(0, 10, 0, 0); Title.BackgroundTransparency = 1; Title.Text = "TRANSPORTER HUB"; Title.TextColor3 = Color3.new(1,1,1); Title.Font = Enum.Font.GothamBold; Title.TextXAlignment = Enum.TextXAlignment.Left
 
-local Main = Instance.new("Frame", Gui)
-Main.Size, Main.Position = UDim2.new(0, 220, 0, 230), UDim2.new(0.5, -110, 0.5, -115)
-Main.BackgroundColor3, Main.BorderSizePixel = Color3.fromRGB(20, 20, 25), 0
-Main.Active = true; Main.Draggable = true
-Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 8)
-
-local Header = Instance.new("Frame", Main)
-Header.Size, Header.BackgroundColor3 = UDim2.new(1, 0, 0, 30), Color3.fromRGB(35, 35, 45)
-Instance.new("UICorner", Header).CornerRadius = UDim.new(0, 8)
-
-local Title = Instance.new("TextLabel", Header)
-Title.Size, Title.Position = UDim2.new(1, -60, 1, 0), UDim2.new(0, 10, 0, 0)
-Title.BackgroundTransparency = 1; Title.Text = "MORGUE HUB"; Title.TextColor3 = Color3.new(1,1,1)
-Title.Font = Enum.Font.GothamBold; Title.TextXAlignment = Enum.TextXAlignment.Left
-
--- Navigasi
+-- Tombol Navigasi (Minimize & Close)
 local MinBtn = Instance.new("TextButton", Header)
-MinBtn.Size, MinBtn.Position = UDim2.new(0, 30, 0, 30), UDim2.new(1, -60, 0, -2)
-MinBtn.BackgroundTransparency = 1; MinBtn.Text = "_"; MinBtn.TextColor3 = Color3.new(1,1,1)
+MinBtn.Size = UDim2.new(0, 30, 0, 30); MinBtn.Position = UDim2.new(1, -60, 0, -2)
+MinBtn.BackgroundTransparency = 1; MinBtn.Text = "_"; MinBtn.TextColor3 = Color3.new(1,1,1); MinBtn.Font = Enum.Font.GothamBold
 
 local CloseBtn = Instance.new("TextButton", Header)
-CloseBtn.Size, CloseBtn.Position = UDim2.new(0, 30, 0, 30), UDim2.new(1, -30, 0, 0)
-CloseBtn.BackgroundTransparency = 1; CloseBtn.Text = "X"; CloseBtn.TextColor3 = Color3.fromRGB(255, 80, 80)
-CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.Size = UDim2.new(0, 30, 0, 30); CloseBtn.Position = UDim2.new(1, -30, 0, 0)
+CloseBtn.BackgroundTransparency = 1; CloseBtn.Text = "X"; CloseBtn.TextColor3 = Color3.fromRGB(255, 80, 80); CloseBtn.Font = Enum.Font.GothamBold
 
-local Content = Instance.new("ScrollingFrame", Main)
-Content.Size, Content.Position = UDim2.new(1, -10, 1, -35), UDim2.new(0, 5, 0, 35)
-Content.BackgroundTransparency = 1; Content.ScrollBarThickness = 0
-local Layout = Instance.new("UIListLayout", Content)
-Layout.Padding = UDim.new(0, 6)
+local Content = Instance.new("ScrollingFrame", Main); Content.Size = UDim2.new(1, -10, 1, -35); Content.Position = UDim2.new(0, 5, 0, 35); Content.BackgroundTransparency = 1; Content.ScrollBarThickness = 0; Instance.new("UIListLayout", Content).Padding = UDim.new(0, 6)
 
--- UI Actions
+-- Logika Tombol UI
 CloseBtn.MouseButton1Click:Connect(function() Gui:Destroy() end)
 local minimized = false
 MinBtn.MouseButton1Click:Connect(function()
     minimized = not minimized
-    Main.Size = minimized and UDim2.new(0, 220, 0, 30) or UDim2.new(0, 220, 0, 230)
+    Main.Size = minimized and UDim2.new(0, 240, 0, 30) or UDim2.new(0, 240, 0, 270)
     Content.Visible = not minimized
 end)
 
--- [[ 2. KONFIGURASI STATE & FUNGSI TOMBOL ]]
-local State = { Instant = false, Sprint = false, GodMode = false }
-
+-- State & Fungsi Tombol Fitur
+local State = { Instant = false, ESP = false, Speed = false, Noclip = false, ClickTP = false }
 local function AddToggle(text, stateKey)
     local b = Instance.new("TextButton", Content)
     b.Size = UDim2.new(1, -5, 0, 35); b.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
-    b.Text = text .. " [OFF]"; b.TextColor3 = Color3.new(1,1,1); b.Font = Enum.Font.GothamSemibold
-    Instance.new("UICorner", b).CornerRadius = UDim.new(0, 6)
-    
+    b.Text = text .. " [OFF]"; b.TextColor3 = Color3.new(1,1,1); b.Font = Enum.Font.GothamSemibold; Instance.new("UICorner", b).CornerRadius = UDim.new(0, 6)
     b.MouseButton1Click:Connect(function() 
         State[stateKey] = not State[stateKey]
         b.Text = text .. (State[stateKey] and " [ON]" or " [OFF]")
@@ -70,84 +48,77 @@ local function AddToggle(text, stateKey)
     end)
 end
 
-local function AddButton(text, callback)
-    local b = Instance.new("TextButton", Content)
-    b.Size = UDim2.new(1, -5, 0, 35); b.BackgroundColor3 = Color3.fromRGB(180, 80, 40)
-    b.Text = text; b.TextColor3 = Color3.new(1,1,1); b.Font = Enum.Font.GothamBold
-    Instance.new("UICorner", b).CornerRadius = UDim.new(0, 6)
-    b.MouseButton1Click:Connect(callback)
-end
+-- Render Tombol
+AddToggle("⚡ Instant Interact", "Instant")
+AddToggle("👁️ ESP Misi", "ESP")
+AddToggle("👻 Noclip (Tembus Tembok)", "Noclip")
+AddToggle("🖱️ Ctrl+Click Teleport", "ClickTP")
+AddToggle("🏃 Speed Lari", "Speed")
 
--- Render Tombol UI
-AddToggle("⚡ Instant Interact (E)", "Instant")
-AddToggle("🏃 Sprint Biasa", "Sprint")
-AddToggle("🛡️ God Mode (Anti Mati)", "GodMode")
+-- [[ 2. LOGIKA FITUR TRANSPORT ]]
 
--- Tombol Khusus Spawn Hantu
-AddButton("🩸 SPAWN BATTLENURSE", function()
-    local cmd = "/spawnplayer " .. lp.Name .. " BattleNurse"
-    
-    -- Injeksi ke sistem Chat Baru (TextChatService)
-    if TextChatService and TextChatService:FindFirstChild("TextChannels") then
-        local channel = TextChatService.TextChannels:FindFirstChild("RBXGeneral")
-        if channel then channel:SendAsync(cmd) end
+-- A. NOCLIP (Berjalan menembus tembok saat bawa mayat)
+RunService.Stepped:Connect(function()
+    if State.Noclip and lp.Character then
+        for _, part in pairs(lp.Character:GetDescendants()) do
+            if part:IsA("BasePart") and part.CanCollide then
+                part.CanCollide = false
+            end
+        end
     end
-    
-    -- Injeksi ke sistem Chat Lama (Legacy Chat)
-    local legacyChat = ReplicatedStorage:FindFirstChild("DefaultChatSystemChatEvents")
-    if legacyChat and legacyChat:FindFirstChild("SayMessageRequest") then
-        legacyChat.SayMessageRequest:FireServer(cmd, "All")
-    end
-    print("Mencoba mengirim perintah Admin: " .. cmd)
 end)
 
--- [[ 3. LOGIKA FITUR ]]
+-- B. CTRL + CLICK TELEPORT (Pindah instan tanpa jalan)
+mouse.Button1Down:Connect(function()
+    if State.ClickTP and UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
+        if lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then
+            -- Hitung posisi target dari kursor mouse
+            local targetPos = mouse.Hit.Position
+            -- Teleport karakter ke posisi tersebut (ditinggikan sedikit agar tidak nyangkut di lantai)
+            lp.Character.HumanoidRootPart.CFrame = CFrame.new(targetPos + Vector3.new(0, 3, 0))
+        end
+    end
+end)
 
--- A. Instant Interact (Menghilangkan Loading 'E')
+-- C. INSTANT INTERACT
 task.spawn(function()
     while task.wait(0.5) do
         if State.Instant then
             for _, v in pairs(Workspace:GetDescendants()) do
                 if v:IsA("ProximityPrompt") and v.HoldDuration > 0 then
-                    v:SetAttribute("OldHold", v.HoldDuration) -- Simpan durasi asli
-                    v.HoldDuration = 0 -- Jadikan instan
+                    v:SetAttribute("OldHold", v.HoldDuration)
+                    v.HoldDuration = 0
+                end
+            end
+        end
+    end
+end)
+
+-- D. ESP MISI (Cyan Highlight)
+local espHighlights = {}
+task.spawn(function()
+    while task.wait(1) do
+        if State.ESP then
+            for _, v in pairs(Workspace:GetDescendants()) do
+                if (v:IsA("ProximityPrompt") or v:IsA("ClickDetector")) and v.Parent and v.Parent:IsA("BasePart") then
+                    if not espHighlights[v.Parent] then
+                        local highlight = Instance.new("Highlight", v.Parent)
+                        highlight.Adornee = v.Parent; highlight.FillColor = Color3.fromRGB(0, 255, 255); highlight.FillTransparency = 0.5; highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                        espHighlights[v.Parent] = highlight
+                    end
                 end
             end
         else
-            -- Kembalikan seperti semula jika dimatikan
-            for _, v in pairs(Workspace:GetDescendants()) do
-                if v:IsA("ProximityPrompt") and v:GetAttribute("OldHold") then
-                    v.HoldDuration = v:GetAttribute("OldHold")
-                    v:SetAttribute("OldHold", nil)
-                end
-            end
+            for _, highlight in pairs(espHighlights) do if highlight then highlight:Destroy() end end
+            table.clear(espHighlights)
         end
     end
 end)
 
--- B. Sprint Biasa (WalkSpeed 24)
+-- E. SPEED LARI
 task.spawn(function()
     while task.wait(0.1) do
-        local char = lp.Character
-        local hum = char and char:FindFirstChild("Humanoid")
-        if hum then
-            if State.Sprint then
-                hum.WalkSpeed = 26 -- Kecepatan lari standar/biasa
-            else
-                if hum.WalkSpeed == 26 then hum.WalkSpeed = 16 end -- Kembali jalan normal
-            end
-        end
-    end
-end)
-
--- C. God Mode (Darah Tidak Berkurang)
-RunService.RenderStepped:Connect(function()
-    if State.GodMode then
-        local char = lp.Character
-        local hum = char and char:FindFirstChild("Humanoid")
-        -- Jika health turun dari max, kembalikan instan ke max
-        if hum and hum.Health < hum.MaxHealth and hum.Health > 0 then
-            hum.Health = hum.MaxHealth
-        end
+        local hum = lp.Character and lp.Character:FindFirstChild("Humanoid")
+        if hum then hum.WalkSpeed = State.Speed and 24 or 16 end
     end
 end)
