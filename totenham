@@ -1,0 +1,184 @@
+-- ==================================================
+-- 🧩 PUZZLE AUTO-FARM HUB V22 (SMART MAGNET & FLY)
+-- ==================================================
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local CoreGui = game:GetService("CoreGui")
+local VirtualUser = game:GetService("VirtualUser")
+local TweenService = game:GetService("TweenService")
+
+local lp = Players.LocalPlayer
+local currentFlyTween = nil
+
+-- [[ 1. UI HUB SETUP ]]
+local Gui = Instance.new("ScreenGui"); Gui.Name = "PuzzleFarmHubV22"; Gui.Parent = (gethui and gethui()) or CoreGui
+
+local Main = Instance.new("Frame", Gui)
+Main.Size = UDim2.new(0, 250, 0, 345) -- Diperbesar untuk menampung tombol baru
+Main.Position = UDim2.new(0.5, -125, 0.8, -170)
+Main.BackgroundColor3 = Color3.fromRGB(20, 22, 28); Main.Active = true; Main.Draggable = true
+Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 8)
+
+local Header = Instance.new("Frame", Main)
+Header.Size = UDim2.new(1, 0, 0, 30); Header.BackgroundColor3 = Color3.fromRGB(120, 40, 100)
+Instance.new("UICorner", Header).CornerRadius = UDim.new(0, 8)
+local Title = Instance.new("TextLabel", Header)
+Title.Size = UDim2.new(1, -60, 1, 0); Title.Position = UDim2.new(0, 10, 0, 0)
+Title.BackgroundTransparency = 1; Title.Text = "🧩 FARM V22 (MAGNET)"; Title.TextColor3 = Color3.new(1,1,1); Title.Font = Enum.Font.GothamBold; Title.TextXAlignment = Enum.TextXAlignment.Left
+
+local MinBtn = Instance.new("TextButton", Header); MinBtn.Size = UDim2.new(0, 30, 0, 30); MinBtn.Position = UDim2.new(1, -60, 0, -2); MinBtn.BackgroundTransparency = 1; MinBtn.Text = "_"; MinBtn.TextColor3 = Color3.new(1,1,1); MinBtn.Font = Enum.Font.GothamBold
+local CloseBtn = Instance.new("TextButton", Header); CloseBtn.Size = UDim2.new(0, 30, 0, 30); CloseBtn.Position = UDim2.new(1, -30, 0, 0); CloseBtn.BackgroundTransparency = 1; CloseBtn.Text = "X"; CloseBtn.TextColor3 = Color3.fromRGB(255, 100, 100); CloseBtn.Font = Enum.Font.GothamBold
+local Content = Instance.new("ScrollingFrame", Main); Content.Size = UDim2.new(1, -10, 1, -35); Content.Position = UDim2.new(0, 5, 0, 35); Content.BackgroundTransparency = 1; Content.ScrollBarThickness = 0; Instance.new("UIListLayout", Content).Padding = UDim.new(0, 6)
+
+CloseBtn.MouseButton1Click:Connect(function() 
+    if currentFlyTween then currentFlyTween:Cancel() end
+    if lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then lp.Character.HumanoidRootPart.Anchored = false end
+    Gui:Destroy() 
+end)
+local minimized = false
+MinBtn.MouseButton1Click:Connect(function() minimized = not minimized; Main.Size = minimized and UDim2.new(0, 250, 0, 30) or UDim2.new(0, 250, 0, 345); Content.Visible = not minimized end)
+
+-- [[ 2. PEMBUAT TOMBOL ]]
+local State = { AutoFarm = false, SmoothMagnet = false, AntiAFK = false }
+local radiusList = {50, 100, 150, 9999}
+local radiusIndex = 2
+local MaxRadius = radiusList[radiusIndex]
+
+local function AddToggle(text, stateKey, colorOn)
+    local b = Instance.new("TextButton", Content)
+    b.Size = UDim2.new(1, -10, 0, 35); b.BackgroundColor3 = Color3.fromRGB(40, 45, 55)
+    b.Text = text .. " [OFF]"; b.TextColor3 = Color3.new(1,1,1); b.Font = Enum.Font.GothamSemibold
+    Instance.new("UICorner", b).CornerRadius = UDim.new(0, 6)
+    
+    b.MouseButton1Click:Connect(function() 
+        State[stateKey] = not State[stateKey]
+        b.Text = text .. (State[stateKey] and " [ON]" or " [OFF]")
+        b.BackgroundColor3 = State[stateKey] and colorOn or Color3.fromRGB(40, 45, 55)
+        
+        if stateKey == "AutoFarm" and not State.AutoFarm then
+            if currentFlyTween then currentFlyTween:Cancel() end
+            if lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then 
+                lp.Character.HumanoidRootPart.Anchored = false 
+                lp.Character.HumanoidRootPart.AssemblyLinearVelocity = Vector3.new(0,0,0)
+            end
+        end
+    end)
+    return b
+end
+
+-- Tombol Setting Jarak
+local RadBtn = Instance.new("TextButton", Content)
+RadBtn.Size = UDim2.new(1, -10, 0, 35); RadBtn.BackgroundColor3 = Color3.fromRGB(180, 120, 40)
+RadBtn.Text = "📏 Radius: " .. MaxRadius .. " meter"; RadBtn.TextColor3 = Color3.new(1,1,1); RadBtn.Font = Enum.Font.GothamSemibold
+Instance.new("UICorner", RadBtn).CornerRadius = UDim.new(0, 6)
+
+RadBtn.MouseButton1Click:Connect(function()
+    radiusIndex = radiusIndex + 1
+    if radiusIndex > #radiusList then radiusIndex = 1 end
+    MaxRadius = radiusList[radiusIndex]
+    RadBtn.Text = "📏 Radius: " .. (MaxRadius == 9999 and "UNLIMITED (Satu Map)" or MaxRadius .. " meter")
+end)
+
+AddToggle("🛸 Auto-Fly Farm (Karakter)", "AutoFarm", Color3.fromRGB(40, 150, 180))
+AddToggle("🧲 Smooth Magnet (Sedot Puzzle)", "SmoothMagnet", Color3.fromRGB(40, 180, 80)) -- FITUR BARU
+AddToggle("💤 Anti-AFK (Safe Mode)", "AntiAFK", Color3.fromRGB(50, 120, 200))
+
+local AlertText = Instance.new("TextLabel", Content)
+AlertText.Size = UDim2.new(1, -10, 0, 25); AlertText.BackgroundTransparency = 1; AlertText.TextColor3 = Color3.fromRGB(150, 255, 150)
+AlertText.Font = Enum.Font.GothamSemibold; AlertText.TextSize = 12; AlertText.TextWrapped = true; AlertText.Text = "Pilih salah satu mode! 🛡️"
+
+-- [[ 3. ANTI-AFK ]]
+lp.Idled:Connect(function()
+    if State.AntiAFK then
+        VirtualUser:CaptureController()
+        VirtualUser:ClickButton2(Vector2.new(0,0))
+    end
+end)
+
+-- [[ 4. FITUR BARU: SMOOTH MAGNET (BERDASARKAN RADIUS) ]]
+task.spawn(function()
+    while task.wait(0.5) do
+        if State.SmoothMagnet and lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then
+            local myRoot = lp.Character.HumanoidRootPart
+            
+            for _, obj in pairs(Workspace:GetDescendants()) do
+                if obj:IsA("BasePart") and obj:FindFirstChildOfClass("TouchTransmitter") then
+                    if not obj.Parent:FindFirstChild("Humanoid") then
+                        -- Cek apakah puzzle berada di dalam batas radius
+                        local distance = (myRoot.Position - obj.Position).Magnitude
+                        if distance <= MaxRadius then
+                            
+                            -- Buat animasi magnet: Tarik puzzle melayang ke karakter dalam 0.3 detik
+                            local magnetTweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
+                            local magnetTween = TweenService:Create(obj, magnetTweenInfo, {CFrame = myRoot.CFrame})
+                            
+                            magnetTween:Play()
+                            
+                            -- Saat puzzle berhasil menempel di badan, tembak klaim sentuhan!
+                            task.spawn(function()
+                                magnetTween.Completed:Wait()
+                                if obj and obj.Parent and firetouchinterest then
+                                    firetouchinterest(myRoot, obj, 0)
+                                    firetouchinterest(myRoot, obj, 1)
+                                end
+                            end)
+                            
+                            -- Jeda antar sedotan agar server tidak menganggapnya spam
+                            task.wait(0.1)
+                        end
+                    end
+                end
+            end
+        end
+    end
+end)
+
+-- [[ 5. AUTO-FLY FARM (Karakter menghampiri puzzle - Dipertahankan) ]]
+local flySpeed = 80
+task.spawn(function()
+    while task.wait(0.5) do
+        if State.AutoFarm and lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then
+            local myRoot = lp.Character.HumanoidRootPart
+            local puzzles = {}
+            
+            for _, obj in pairs(Workspace:GetDescendants()) do
+                if obj:IsA("BasePart") and obj:FindFirstChildOfClass("TouchTransmitter") then
+                    if not obj.Parent:FindFirstChild("Humanoid") then
+                        local distance = (myRoot.Position - obj.Position).Magnitude
+                        if distance <= MaxRadius then table.insert(puzzles, obj) end
+                    end
+                end
+            end
+            
+            table.sort(puzzles, function(a, b)
+                return (myRoot.Position - a.Position).Magnitude < (myRoot.Position - b.Position).Magnitude
+            end)
+            
+            for _, obj in ipairs(puzzles) do
+                if not State.AutoFarm then break end 
+                
+                if obj and obj.Parent then
+                    local currentDist = (myRoot.Position - obj.Position).Magnitude
+                    local flyTime = currentDist / flySpeed
+                    
+                    myRoot.Anchored = true
+                    local targetPos = CFrame.new(obj.Position)
+                    local tweenInfo = TweenInfo.new(flyTime, Enum.EasingStyle.Linear)
+                    currentFlyTween = TweenService:Create(myRoot, tweenInfo, {CFrame = targetPos})
+                    currentFlyTween:Play()
+                    currentFlyTween.Completed:Wait()
+                    
+                    myRoot.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+                    myRoot.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+                    myRoot.Anchored = false
+                    
+                    if firetouchinterest then
+                        firetouchinterest(myRoot, obj, 0)
+                        firetouchinterest(myRoot, obj, 1)
+                    end
+                    task.wait(0.15)
+                end
+            end
+        end
+    end
+end)
