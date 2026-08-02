@@ -1,0 +1,165 @@
+-- ======================================================
+-- 🔥 AUTO UGC SNIPER V2 (RemoteFunction Supported) 🔥
+-- ======================================================
+local CoreGui = game:GetService("CoreGui")
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+if CoreGui:FindFirstChild("UGCSniperGUI") then
+    CoreGui.UGCSniperGUI:Destroy()
+end
+
+-- ==========================================
+-- 1. MEMBUAT TAMPILAN UI
+-- ==========================================
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "UGCSniperGUI"
+ScreenGui.Parent = CoreGui
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 350, 0, 280)
+MainFrame.Position = UDim2.new(0.5, -175, 0.5, -140)
+MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.Parent = ScreenGui
+
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 8)
+UICorner.Parent = MainFrame
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, -40, 0, 40)
+Title.Position = UDim2.new(0, 15, 0, 0)
+Title.BackgroundTransparency = 1
+Title.Text = "🎯 UGC SNIPER V2 (FUNCTION)"
+Title.TextColor3 = Color3.fromRGB(255, 200, 50)
+Title.TextSize = 18
+Title.Font = Enum.Font.GothamBold
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = MainFrame
+
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Size = UDim2.new(0, 30, 0, 30)
+CloseBtn.Position = UDim2.new(1, -35, 0, 5)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+CloseBtn.Text = "X"
+CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.Parent = MainFrame
+local CloseCorner = Instance.new("UICorner")
+CloseCorner.CornerRadius = UDim.new(0, 5)
+CloseCorner.Parent = CloseBtn
+
+local CodeInput = Instance.new("TextBox")
+CodeInput.Size = UDim2.new(0, 310, 0, 40)
+CodeInput.Position = UDim2.new(0, 20, 0, 60)
+CodeInput.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+CodeInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+CodeInput.PlaceholderText = "Ketik Kode UGC (Misal: waffle...)"
+CodeInput.Font = Enum.Font.Gotham
+CodeInput.TextSize = 14
+CodeInput.ClearTextOnFocus = false
+CodeInput.Parent = MainFrame
+local InputCorner1 = Instance.new("UICorner")
+InputCorner1.CornerRadius = UDim.new(0, 5)
+InputCorner1.Parent = CodeInput
+
+local RemoteInput = Instance.new("TextBox")
+RemoteInput.Size = UDim2.new(0, 310, 0, 40)
+RemoteInput.Position = UDim2.new(0, 20, 0, 110)
+RemoteInput.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+RemoteInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+RemoteInput.Text = "RedeemCode" -- Default dari temuanmu
+RemoteInput.PlaceholderText = "Nama RemoteFunction"
+RemoteInput.Font = Enum.Font.Gotham
+RemoteInput.TextSize = 14
+RemoteInput.ClearTextOnFocus = false
+RemoteInput.Parent = MainFrame
+local InputCorner2 = Instance.new("UICorner")
+InputCorner2.CornerRadius = UDim.new(0, 5)
+InputCorner2.Parent = RemoteInput
+
+local SpamBtn = Instance.new("TextButton")
+SpamBtn.Size = UDim2.new(0, 310, 0, 45)
+SpamBtn.Position = UDim2.new(0, 20, 0, 170)
+SpamBtn.BackgroundColor3 = Color3.fromRGB(50, 150, 255)
+SpamBtn.Text = "🚀 SPAM INVOKE (2 DETIK)"
+SpamBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+SpamBtn.Font = Enum.Font.GothamBold
+SpamBtn.TextSize = 16
+SpamBtn.Parent = MainFrame
+local BtnCorner = Instance.new("UICorner")
+BtnCorner.CornerRadius = UDim.new(0, 5)
+BtnCorner.Parent = SpamBtn
+
+local Status = Instance.new("TextLabel")
+Status.Size = UDim2.new(0, 310, 0, 30)
+Status.Position = UDim2.new(0, 20, 0, 230)
+Status.BackgroundTransparency = 1
+Status.Text = "Status: Siap menembak."
+Status.TextColor3 = Color3.fromRGB(200, 200, 200)
+Status.Font = Enum.Font.Gotham
+Status.TextSize = 13
+Status.TextWrapped = true
+Status.Parent = MainFrame
+
+-- ==========================================
+-- 2. LOGIKA SCRIPT (ANTI FREEZE)
+-- ==========================================
+local isSpamming = false
+local spamConnection = nil
+
+CloseBtn.MouseButton1Click:Connect(function()
+    if spamConnection then
+        spamConnection:Disconnect()
+    end
+    ScreenGui:Destroy()
+end)
+
+SpamBtn.MouseButton1Click:Connect(function()
+    if isSpamming then return end
+    
+    local targetCode = CodeInput.Text
+    local remoteName = RemoteInput.Text
+    
+    if targetCode == "" or remoteName == "" then
+        Status.Text = "Status: ⚠️ Isi Kodenya dulu!"
+        Status.TextColor3 = Color3.fromRGB(255, 255, 50)
+        return
+    end
+
+    -- Mencari RemoteFunction, bukan RemoteEvent
+    local targetRemote = ReplicatedStorage:FindFirstChild(remoteName)
+
+    if not targetRemote or not targetRemote:IsA("RemoteFunction") then
+        Status.Text = "Status: ❌ RemoteFunction '".. remoteName .. "' tidak valid!"
+        Status.TextColor3 = Color3.fromRGB(255, 50, 50)
+        return
+    end
+
+    isSpamming = true
+    Status.Text = "Status: 🔥 MEMBORBARDIR SERVER (INVOKING)..."
+    Status.TextColor3 = Color3.fromRGB(50, 255, 50)
+    
+    -- Loop render
+    spamConnection = RunService.RenderStepped:Connect(function()
+        -- WAJIB PAKAI TASK.SPAWN AGAR GAME TIDAK FREEZE KARENA INVOKESERVER
+        task.spawn(function()
+            pcall(function()
+                targetRemote:InvokeServer(targetCode)
+            end)
+        end)
+    end)
+    
+    -- Matikan otomatis setelah 2 detik
+    task.delay(2, function()
+        if spamConnection then
+            spamConnection:Disconnect()
+        end
+        isSpamming = false
+        Status.Text = "Status: ✅ Spam selesai! Cek apakah dapat itemnya."
+        Status.TextColor3 = Color3.fromRGB(200, 200, 200)
+    end)
+end)
