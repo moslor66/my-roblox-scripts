@@ -1,0 +1,228 @@
+-- ======================================================
+-- 🛡️ AUTO UGC MULTI-SNIPER V7 (SAFE SPEED 0.1s + AUTO-BUY) 🛡️
+-- ======================================================
+local CoreGui = game:GetService("CoreGui")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+
+if CoreGui:FindFirstChild("UGCSniperV7") then
+    CoreGui.UGCSniperV7:Destroy()
+end
+
+-- ==========================================
+-- 1. MEMBUAT TAMPILAN UI
+-- ==========================================
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "UGCSniperV7"
+ScreenGui.Parent = CoreGui
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 380, 0, 320)
+MainFrame.Position = UDim2.new(0.5, -190, 0.5, -160)
+MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.Parent = ScreenGui
+
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 8)
+UICorner.Parent = MainFrame
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, -40, 0, 40)
+Title.Position = UDim2.new(0, 15, 0, 0)
+Title.BackgroundTransparency = 1
+Title.Text = "🎯 MULTI-SNIPER V7 (SAFE 0.1s)"
+Title.TextColor3 = Color3.fromRGB(50, 200, 255)
+Title.TextSize = 16
+Title.Font = Enum.Font.GothamBold
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = MainFrame
+
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Size = UDim2.new(0, 30, 0, 30)
+CloseBtn.Position = UDim2.new(1, -35, 0, 5)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+CloseBtn.Text = "X"
+CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.Parent = MainFrame
+local CloseCorner = Instance.new("UICorner")
+CloseCorner.CornerRadius = UDim.new(0, 5)
+CloseCorner.Parent = CloseBtn
+
+local CodeInput = Instance.new("TextBox")
+CodeInput.Size = UDim2.new(0, 340, 0, 80)
+CodeInput.Position = UDim2.new(0, 20, 0, 50)
+CodeInput.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+CodeInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+CodeInput.PlaceholderText = "Masukkan banyak kode sekaligus!\nPisahkan dengan KOMA (,)\nContoh: kode1, kode2, kode3"
+CodeInput.Font = Enum.Font.Gotham
+CodeInput.TextSize = 13
+CodeInput.TextYAlignment = Enum.TextYAlignment.Top
+CodeInput.ClearTextOnFocus = false
+CodeInput.TextWrapped = true
+CodeInput.Parent = MainFrame
+local InputCorner1 = Instance.new("UICorner")
+InputCorner1.CornerRadius = UDim.new(0, 5)
+InputCorner1.Parent = CodeInput
+
+local RemoteInput = Instance.new("TextBox")
+RemoteInput.Size = UDim2.new(0, 340, 0, 35)
+RemoteInput.Position = UDim2.new(0, 20, 0, 140)
+RemoteInput.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+RemoteInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+RemoteInput.Text = "RedeemCode"
+RemoteInput.PlaceholderText = "Nama RemoteFunction"
+RemoteInput.Font = Enum.Font.Gotham
+RemoteInput.TextSize = 13
+RemoteInput.ClearTextOnFocus = false
+RemoteInput.Parent = MainFrame
+local InputCorner2 = Instance.new("UICorner")
+InputCorner2.CornerRadius = UDim.new(0, 5)
+InputCorner2.Parent = RemoteInput
+
+local SpamBtn = Instance.new("TextButton")
+SpamBtn.Size = UDim2.new(0, 340, 0, 45)
+SpamBtn.Position = UDim2.new(0, 20, 0, 190)
+SpamBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
+SpamBtn.Text = "▶ START SPAM (0.1s DELAY)"
+SpamBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+SpamBtn.Font = Enum.Font.GothamBold
+SpamBtn.TextSize = 15
+SpamBtn.Parent = MainFrame
+local BtnCorner = Instance.new("UICorner")
+BtnCorner.CornerRadius = UDim.new(0, 5)
+BtnCorner.Parent = SpamBtn
+
+local Status = Instance.new("TextLabel")
+Status.Size = UDim2.new(0, 340, 0, 50)
+Status.Position = UDim2.new(0, 20, 0, 245)
+Status.BackgroundTransparency = 1
+Status.Text = "Status: Siap.\nKecepatan disesuaikan agar tidak terkena Rate Limit."
+Status.TextColor3 = Color3.fromRGB(200, 200, 200)
+Status.Font = Enum.Font.Gotham
+Status.TextSize = 12
+Status.TextWrapped = true
+Status.TextYAlignment = Enum.TextYAlignment.Top
+Status.Parent = MainFrame
+
+-- ==========================================
+-- 2. LOGIKA SCRIPT (0.1s LOOP & SMART AUTO-BUY)
+-- ==========================================
+local isSpamming = false
+
+CloseBtn.MouseButton1Click:Connect(function()
+    isSpamming = false
+    ScreenGui:Destroy()
+end)
+
+-- FITUR AUTO-BUY & AUTO-STOP (Berjalan di background)
+task.spawn(function()
+    while task.wait(0.05) do
+        if not isSpamming then continue end
+        pcall(function()
+            local prompt = CoreGui:FindFirstChild("PurchasePrompt")
+            if prompt then
+                local container = prompt:FindFirstChild("ProductPurchaseContainer")
+                if container and container.Visible then
+                    local buyBtn = container:FindFirstChild("BuyButton", true)
+                    if buyBtn then
+                        -- ===================================================
+                        -- 🛑 1. HENTIKAN SPAM SEKETIKA
+                        -- ===================================================
+                        isSpamming = false -- Ini akan otomatis menghentikan loop 0.1s di bawah
+                        
+                        -- Update tampilan UI
+                        SpamBtn.Text = "▶ START SPAM (0.1s DELAY)"
+                        SpamBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
+                        Status.Text = "Status: 🎉 ITEM MUNCUL! Sedang Auto-Buy..."
+                        Status.TextColor3 = Color3.fromRGB(50, 255, 255)
+
+                        -- ===================================================
+                        -- 🛒 2. KLIK TOMBOL BELI OTOMATIS
+                        -- ===================================================
+                        VirtualInputManager:SendMouseButtonEvent(
+                            buyBtn.AbsolutePosition.X + (buyBtn.AbsoluteSize.X / 2),
+                            buyBtn.AbsolutePosition.Y + (buyBtn.AbsoluteSize.Y / 2),
+                            0, true, game, 1
+                        )
+                        task.wait(0.01)
+                        VirtualInputManager:SendMouseButtonEvent(
+                            buyBtn.AbsolutePosition.X + (buyBtn.AbsoluteSize.X / 2),
+                            buyBtn.AbsolutePosition.Y + (buyBtn.AbsoluteSize.Y / 2),
+                            0, false, game, 1
+                        )
+                        
+                        Status.Text = "Status: ✅ AUTO-BUY SUKSES DIEKSEKUSI!"
+                    end
+                end
+            end
+        end)
+    end
+end)
+
+-- FITUR SPAM DENGAN JEDA 0.1 DETIK
+SpamBtn.MouseButton1Click:Connect(function()
+    if isSpamming then
+        isSpamming = false
+        SpamBtn.Text = "▶ START SPAM (0.1s DELAY)"
+        SpamBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
+        Status.Text = "Status: 🛑 Sniper dihentikan manual."
+        Status.TextColor3 = Color3.fromRGB(200, 200, 200)
+        return
+    end
+    
+    local rawText = CodeInput.Text
+    local remoteName = RemoteInput.Text
+    
+    if rawText == "" or remoteName == "" then
+        Status.Text = "Status: ⚠️ Masukkan kodenya dulu!"
+        Status.TextColor3 = Color3.fromRGB(255, 255, 50)
+        return
+    end
+
+    local targetRemote = ReplicatedStorage:FindFirstChild(remoteName)
+    if not targetRemote or not targetRemote:IsA("RemoteFunction") then
+        Status.Text = "Status: ❌ RemoteFunction tidak valid!"
+        Status.TextColor3 = Color3.fromRGB(255, 50, 50)
+        return
+    end
+
+    rawText = string.gsub(rawText, "\n", ",")
+    local codeList = string.split(rawText, ",")
+    local cleanCodes = {}
+    
+    for _, code in pairs(codeList) do
+        local trimmed = string.match(code, "^%s*(.-)%s*$")
+        if trimmed ~= "" then
+            table.insert(cleanCodes, trimmed)
+        end
+    end
+
+    if #cleanCodes == 0 then
+        return
+    end
+
+    isSpamming = true
+    SpamBtn.Text = "🛑 STOP SPAM"
+    SpamBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+    Status.Text = "Status: ⚡ Mengirim request aman (Setiap 0.1 detik)..."
+    Status.TextColor3 = Color3.fromRGB(255, 200, 100)
+    
+    -- LOOP SPAM DENGAN DELAY 0.1 DETIK
+    task.spawn(function()
+        while isSpamming do
+            for _, targetCode in ipairs(cleanCodes) do
+                -- Kirim request di thread terpisah agar tidak macet
+                task.spawn(function()
+                    pcall(function()
+                        targetRemote:InvokeServer(targetCode)
+                    end)
+                end)
+            end
+            task.wait(0.1) -- Jeda aman yang kamu minta (0.1 detik)
+        end
+    end)
+end)
