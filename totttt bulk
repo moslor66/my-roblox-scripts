@@ -1,0 +1,142 @@
+-- ======================================================
+-- 🛒 AUTO BULK PURCHASE UI (ON/OFF TOGGLE) 🛒
+-- ======================================================
+local CoreGui = game:GetService("CoreGui")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+-- Menghapus UI lama jika script dijalankan ulang
+if CoreGui:FindFirstChild("BulkPurchaseUI") then
+    CoreGui.BulkPurchaseUI:Destroy()
+end
+
+-- ==========================================
+-- 1. MEMBUAT TAMPILAN UI
+-- ==========================================
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "BulkPurchaseUI"
+ScreenGui.Parent = CoreGui
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 300, 0, 160)
+MainFrame.Position = UDim2.new(0.5, -150, 0.5, -80)
+MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.Parent = ScreenGui
+
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 8)
+UICorner.Parent = MainFrame
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, -40, 0, 40)
+Title.Position = UDim2.new(0, 15, 0, 0)
+Title.BackgroundTransparency = 1
+Title.Text = "🛒 AUTO BULK BUY"
+Title.TextColor3 = Color3.fromRGB(255, 200, 50)
+Title.TextSize = 16
+Title.Font = Enum.Font.GothamBold
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = MainFrame
+
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Size = UDim2.new(0, 30, 0, 30)
+CloseBtn.Position = UDim2.new(1, -35, 0, 5)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+CloseBtn.Text = "X"
+CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.Parent = MainFrame
+local CloseCorner = Instance.new("UICorner")
+CloseCorner.CornerRadius = UDim.new(0, 5)
+CloseCorner.Parent = CloseBtn
+
+local ToggleBtn = Instance.new("TextButton")
+ToggleBtn.Size = UDim2.new(0, 260, 0, 45)
+ToggleBtn.Position = UDim2.new(0, 20, 0, 55)
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
+ToggleBtn.Text = "▶ START (ON)"
+ToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleBtn.Font = Enum.Font.GothamBold
+ToggleBtn.TextSize = 16
+ToggleBtn.Parent = MainFrame
+local BtnCorner = Instance.new("UICorner")
+BtnCorner.CornerRadius = UDim.new(0, 5)
+BtnCorner.Parent = ToggleBtn
+
+local Status = Instance.new("TextLabel")
+Status.Size = UDim2.new(0, 260, 0, 30)
+Status.Position = UDim2.new(0, 20, 0, 110)
+Status.BackgroundTransparency = 1
+Status.Text = "Status: OFF"
+Status.TextColor3 = Color3.fromRGB(200, 200, 200)
+Status.Font = Enum.Font.Gotham
+Status.TextSize = 14
+Status.Parent = MainFrame
+
+-- ==========================================
+-- 2. LOGIKA SCRIPT (DATA & LOOP)
+-- ==========================================
+local isRunning = false
+
+-- Data Argumen yang kamu berikan (sudah diperbaiki local-nya)
+local args = {
+    {
+        {Id = "108833834533822", Type = Enum.MarketplaceProductType.AvatarAsset},
+        {Id = "126318278374730", Type = Enum.MarketplaceProductType.AvatarAsset},
+        {Id = "120765038724194", Type = Enum.MarketplaceProductType.AvatarAsset},
+        {Id = "110054804831771", Type = Enum.MarketplaceProductType.AvatarAsset},
+        {Id = "81413155908070", Type = Enum.MarketplaceProductType.AvatarAsset},
+        {Id = "74238379316150", Type = Enum.MarketplaceProductType.AvatarAsset},
+        {Id = "81406194447355", Type = Enum.MarketplaceProductType.AvatarAsset},
+        {Id = "136070962098725", Type = Enum.MarketplaceProductType.AvatarAsset}
+    }
+}
+
+-- Mencari RemoteEvent BulkPurchase
+local remote = nil
+pcall(function()
+    remote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("BulkPurchase")
+end)
+
+-- Tombol Close (X)
+CloseBtn.MouseButton1Click:Connect(function()
+    isRunning = false
+    ScreenGui:Destroy()
+end)
+
+-- Tombol ON / OFF
+ToggleBtn.MouseButton1Click:Connect(function()
+    if not remote then
+        Status.Text = "Status: ❌ Remote tidak ditemukan!"
+        Status.TextColor3 = Color3.fromRGB(255, 50, 50)
+        return
+    end
+
+    if isRunning then
+        -- MATIKAN (OFF)
+        isRunning = false
+        ToggleBtn.Text = "▶ START (ON)"
+        ToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
+        Status.Text = "Status: OFF"
+        Status.TextColor3 = Color3.fromRGB(200, 200, 200)
+    else
+        -- NYALAKAN (ON)
+        isRunning = true
+        ToggleBtn.Text = "🛑 STOP (OFF)"
+        ToggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+        Status.Text = "Status: 🔥 ON (Membeli item...)"
+        Status.TextColor3 = Color3.fromRGB(50, 255, 50)
+        
+        -- Loop pengiriman request
+        task.spawn(function()
+            while isRunning do
+                pcall(function()
+                    remote:FireServer(unpack(args))
+                end)
+                task.wait(0.1) -- Jeda aman agar tidak lag/kick
+            end
+        end)
+    end
+end)
