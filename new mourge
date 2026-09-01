@@ -1,5 +1,5 @@
 -- ==================================================
--- 🏥 THE MORGUE SHIFT - LITE VERSION (SAFE UPDATE)
+-- 🏥 THE MORGUE SHIFT - LITE VERSION (SPEED 18)
 -- ==================================================
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
@@ -8,7 +8,6 @@ local lp = Players.LocalPlayer
 
 -- [[ 1. UI SETUP PRO ]]
 local Gui = Instance.new("ScreenGui"); Gui.Name = "MorgueTransport"; Gui.Parent = (gethui and gethui()) or CoreGui
--- Ukuran tinggi MainFrame diperkecil (dari 270 menjadi 150) karena sisa 2 tombol
 local Main = Instance.new("Frame", Gui); Main.Size = UDim2.new(0, 240, 0, 150); Main.Position = UDim2.new(0.5, -120, 0.5, -75); Main.BackgroundColor3 = Color3.fromRGB(20, 20, 25); Main.Active = true; Main.Draggable = true; Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 8)
 local Header = Instance.new("Frame", Main); Header.Size = UDim2.new(1, 0, 0, 30); Header.BackgroundColor3 = Color3.fromRGB(35, 35, 45); Instance.new("UICorner", Header).CornerRadius = UDim.new(0, 8)
 local Title = Instance.new("TextLabel", Header); Title.Size = UDim2.new(1, -60, 1, 0); Title.Position = UDim2.new(0, 10, 0, 0); Title.BackgroundTransparency = 1; Title.Text = "TRANSPORTER LITE"; Title.TextColor3 = Color3.new(1,1,1); Title.Font = Enum.Font.GothamBold; Title.TextXAlignment = Enum.TextXAlignment.Left
@@ -33,7 +32,7 @@ MinBtn.MouseButton1Click:Connect(function()
     Content.Visible = not minimized
 end)
 
--- State & Fungsi Tombol Fitur (Tersisa Instant & Speed)
+-- State & Fungsi Tombol Fitur
 local State = { Instant = false, Speed = false }
 local function AddToggle(text, stateKey)
     local b = Instance.new("TextButton", Content)
@@ -84,8 +83,8 @@ task.spawn(function()
     while task.wait(0.1) do
         local hum = lp.Character and lp.Character:FindFirstChild("Humanoid")
         if hum then 
-            -- Speed diatur ke 21 agar tetap natural
-            hum.WalkSpeed = State.Speed and 21 or 16 
+            -- Speed diatur ke 18 (Standar 16) agar sangat aman
+            hum.WalkSpeed = State.Speed and 18 or 16 
         end
     end
 end)
