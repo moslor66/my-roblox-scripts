@@ -1,9 +1,10 @@
 -- ==================================================
--- 🏥 THE MORGUE SHIFT - LITE VERSION (SPEED 18)
+-- 🏥 THE MORGUE SHIFT - LITE VERSION (MAX STEALTH)
 -- ==================================================
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 local CoreGui = game:GetService("CoreGui")
+local ProximityPromptService = game:GetService("ProximityPromptService")
 local lp = Players.LocalPlayer
 
 -- [[ 1. UI SETUP PRO ]]
@@ -51,40 +52,46 @@ AddToggle("🏃 Speed Lari", "Speed")
 
 -- [[ 2. LOGIKA FITUR TRANSPORT ]]
 
--- A. INSTANT INTERACT (ANTI-DETECT BYPASS)
-local savedPrompts = {}
-task.spawn(function()
-    while task.wait(0.5) do
-        if State.Instant then
-            for _, v in pairs(Workspace:GetDescendants()) do
-                if v:IsA("ProximityPrompt") and v.HoldDuration > 0.1 then
-                    -- Simpan durasi asli sebelum diubah
-                    if not savedPrompts[v] then
-                        savedPrompts[v] = v.HoldDuration
-                    end
-                    -- Gunakan 0.1 agar tidak terdeteksi oleh sistem
-                    v.HoldDuration = 0.1
-                end
-            end
+-- A. INSTANT INTERACT (MAX STEALTH - NO LOOP)
+-- Logika ini hanya berjalan saat kamu mulai menekan tombol E (Hold Began), sehingga sangat aman.
+ProximityPromptService.PromptButtonHoldBegan:Connect(function(prompt, player)
+    if State.Instant and player == lp then
+        -- Jika executor kamu mendukung fitur fireproximityprompt (sangat gaib/invisible)
+        if fireproximityprompt then
+            fireproximityprompt(prompt)
         else
-            -- Kembalikan semua durasi ke normal saat dimatikan
-            for prompt, originalDuration in pairs(savedPrompts) do
-                if prompt and prompt.Parent then
-                    prompt.HoldDuration = originalDuration
-                end
-            end
-            table.clear(savedPrompts)
+            -- Fallback aman: Ubah durasi menjadi 0 hanya selama sepersekian detik, lalu kembalikan normal
+            local originalHold = prompt.HoldDuration
+            prompt.HoldDuration = 0
+            task.delay(0.05, function()
+                prompt.HoldDuration = originalHold
+            end)
         end
     end
 end)
 
--- B. SPEED LARI (SAFE SPEED)
+-- B. SPEED LARI (DYNAMIC SAFE SPEED)
+local originalSpeed = 10 
 task.spawn(function()
     while task.wait(0.1) do
         local hum = lp.Character and lp.Character:FindFirstChild("Humanoid")
         if hum then 
-            -- Speed diatur ke 18 (Standar 16) agar sangat aman
-            hum.WalkSpeed = State.Speed and 18 or 16 
+            if State.Speed then
+                -- ON: Speed 14 (Natural, lebih cepat dari default tapi tidak lari)
+                if hum.WalkSpeed ~= 14 then
+                    if hum.WalkSpeed ~= 14 and hum.WalkSpeed ~= 16 and hum.WalkSpeed ~= 18 and hum.WalkSpeed ~= 21 then
+                        originalSpeed = hum.WalkSpeed
+                    end
+                    hum.WalkSpeed = 14
+                end
+            else
+                -- OFF: Kembali ke kecepatan lambat bawaan game
+                if hum.WalkSpeed == 14 or hum.WalkSpeed == 16 or hum.WalkSpeed == 18 or hum.WalkSpeed == 21 then
+                    hum.WalkSpeed = originalSpeed
+                else
+                    originalSpeed = hum.WalkSpeed
+                end
+            end
         end
     end
 end)
