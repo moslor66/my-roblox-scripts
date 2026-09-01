@@ -1,19 +1,17 @@
 -- ==================================================
--- 🏥 THE MORGUE SHIFT - TRANSPORTER HUB (FIXED)
+-- 🏥 THE MORGUE SHIFT - LITE VERSION (SAFE UPDATE)
 -- ==================================================
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
-local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
 local CoreGui = game:GetService("CoreGui")
 local lp = Players.LocalPlayer
-local mouse = lp:GetMouse()
 
 -- [[ 1. UI SETUP PRO ]]
 local Gui = Instance.new("ScreenGui"); Gui.Name = "MorgueTransport"; Gui.Parent = (gethui and gethui()) or CoreGui
-local Main = Instance.new("Frame", Gui); Main.Size = UDim2.new(0, 240, 0, 270); Main.Position = UDim2.new(0.5, -120, 0.5, -135); Main.BackgroundColor3 = Color3.fromRGB(20, 20, 25); Main.Active = true; Main.Draggable = true; Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 8)
+-- Ukuran tinggi MainFrame diperkecil (dari 270 menjadi 150) karena sisa 2 tombol
+local Main = Instance.new("Frame", Gui); Main.Size = UDim2.new(0, 240, 0, 150); Main.Position = UDim2.new(0.5, -120, 0.5, -75); Main.BackgroundColor3 = Color3.fromRGB(20, 20, 25); Main.Active = true; Main.Draggable = true; Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 8)
 local Header = Instance.new("Frame", Main); Header.Size = UDim2.new(1, 0, 0, 30); Header.BackgroundColor3 = Color3.fromRGB(35, 35, 45); Instance.new("UICorner", Header).CornerRadius = UDim.new(0, 8)
-local Title = Instance.new("TextLabel", Header); Title.Size = UDim2.new(1, -60, 1, 0); Title.Position = UDim2.new(0, 10, 0, 0); Title.BackgroundTransparency = 1; Title.Text = "TRANSPORTER HUB"; Title.TextColor3 = Color3.new(1,1,1); Title.Font = Enum.Font.GothamBold; Title.TextXAlignment = Enum.TextXAlignment.Left
+local Title = Instance.new("TextLabel", Header); Title.Size = UDim2.new(1, -60, 1, 0); Title.Position = UDim2.new(0, 10, 0, 0); Title.BackgroundTransparency = 1; Title.Text = "TRANSPORTER LITE"; Title.TextColor3 = Color3.new(1,1,1); Title.Font = Enum.Font.GothamBold; Title.TextXAlignment = Enum.TextXAlignment.Left
 
 -- Tombol Navigasi (Minimize & Close)
 local MinBtn = Instance.new("TextButton", Header)
@@ -31,12 +29,12 @@ CloseBtn.MouseButton1Click:Connect(function() Gui:Destroy() end)
 local minimized = false
 MinBtn.MouseButton1Click:Connect(function()
     minimized = not minimized
-    Main.Size = minimized and UDim2.new(0, 240, 0, 30) or UDim2.new(0, 240, 0, 270)
+    Main.Size = minimized and UDim2.new(0, 240, 0, 30) or UDim2.new(0, 240, 0, 150)
     Content.Visible = not minimized
 end)
 
--- State & Fungsi Tombol Fitur
-local State = { Instant = false, ESP = false, Speed = false, Noclip = false, ClickTP = false }
+-- State & Fungsi Tombol Fitur (Tersisa Instant & Speed)
+local State = { Instant = false, Speed = false }
 local function AddToggle(text, stateKey)
     local b = Instance.new("TextButton", Content)
     b.Size = UDim2.new(1, -5, 0, 35); b.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
@@ -50,75 +48,44 @@ end
 
 -- Render Tombol
 AddToggle("⚡ Instant Interact", "Instant")
-AddToggle("👁️ ESP Misi", "ESP")
-AddToggle("👻 Noclip (Tembus Tembok)", "Noclip")
-AddToggle("🖱️ Ctrl+Click Teleport", "ClickTP")
 AddToggle("🏃 Speed Lari", "Speed")
 
 -- [[ 2. LOGIKA FITUR TRANSPORT ]]
 
--- A. NOCLIP (Berjalan menembus tembok saat bawa mayat)
-RunService.Stepped:Connect(function()
-    if State.Noclip and lp.Character then
-        for _, part in pairs(lp.Character:GetDescendants()) do
-            if part:IsA("BasePart") and part.CanCollide then
-                part.CanCollide = false
-            end
-        end
-    end
-end)
-
--- B. CTRL + CLICK TELEPORT (Pindah instan tanpa jalan)
-mouse.Button1Down:Connect(function()
-    if State.ClickTP and UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
-        if lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then
-            -- Hitung posisi target dari kursor mouse
-            local targetPos = mouse.Hit.Position
-            -- Teleport karakter ke posisi tersebut (ditinggikan sedikit agar tidak nyangkut di lantai)
-            lp.Character.HumanoidRootPart.CFrame = CFrame.new(targetPos + Vector3.new(0, 3, 0))
-        end
-    end
-end)
-
--- C. INSTANT INTERACT
+-- A. INSTANT INTERACT (ANTI-DETECT BYPASS)
+local savedPrompts = {}
 task.spawn(function()
     while task.wait(0.5) do
         if State.Instant then
             for _, v in pairs(Workspace:GetDescendants()) do
-                if v:IsA("ProximityPrompt") and v.HoldDuration > 0 then
-                    v:SetAttribute("OldHold", v.HoldDuration)
-                    v.HoldDuration = 0
-                end
-            end
-        end
-    end
-end)
-
--- D. ESP MISI (Cyan Highlight)
-local espHighlights = {}
-task.spawn(function()
-    while task.wait(1) do
-        if State.ESP then
-            for _, v in pairs(Workspace:GetDescendants()) do
-                if (v:IsA("ProximityPrompt") or v:IsA("ClickDetector")) and v.Parent and v.Parent:IsA("BasePart") then
-                    if not espHighlights[v.Parent] then
-                        local highlight = Instance.new("Highlight", v.Parent)
-                        highlight.Adornee = v.Parent; highlight.FillColor = Color3.fromRGB(0, 255, 255); highlight.FillTransparency = 0.5; highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-                        espHighlights[v.Parent] = highlight
+                if v:IsA("ProximityPrompt") and v.HoldDuration > 0.1 then
+                    -- Simpan durasi asli sebelum diubah
+                    if not savedPrompts[v] then
+                        savedPrompts[v] = v.HoldDuration
                     end
+                    -- Gunakan 0.1 agar tidak terdeteksi oleh sistem
+                    v.HoldDuration = 0.1
                 end
             end
         else
-            for _, highlight in pairs(espHighlights) do if highlight then highlight:Destroy() end end
-            table.clear(espHighlights)
+            -- Kembalikan semua durasi ke normal saat dimatikan
+            for prompt, originalDuration in pairs(savedPrompts) do
+                if prompt and prompt.Parent then
+                    prompt.HoldDuration = originalDuration
+                end
+            end
+            table.clear(savedPrompts)
         end
     end
 end)
 
--- E. SPEED LARI
+-- B. SPEED LARI (SAFE SPEED)
 task.spawn(function()
     while task.wait(0.1) do
         local hum = lp.Character and lp.Character:FindFirstChild("Humanoid")
-        if hum then hum.WalkSpeed = State.Speed and 24 or 16 end
+        if hum then 
+            -- Speed diatur ke 21 agar tetap natural
+            hum.WalkSpeed = State.Speed and 21 or 16 
+        end
     end
 end)
