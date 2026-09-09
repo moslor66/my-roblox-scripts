@@ -1,0 +1,165 @@
+-- ==================================================
+-- 🚀 UNIVERSAL HUB V3 - ALTITUDE OBBY EDITION
+-- ==================================================
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local CoreGui = game:GetService("CoreGui")
+
+local lp = Players.LocalPlayer
+
+-- [[ 1. UI HUB SETUP ]]
+local Gui = Instance.new("ScreenGui"); Gui.Name = "UniversalObbyHub"; Gui.Parent = (gethui and gethui()) or CoreGui
+
+local Main = Instance.new("Frame", Gui)
+Main.Size = UDim2.new(0, 260, 0, 380) -- Diperpanjang untuk memuat tombol baru
+Main.Position = UDim2.new(0.5, -130, 0.5, -190)
+Main.BackgroundColor3 = Color3.fromRGB(20, 22, 28); Main.Active = true; Main.Draggable = true
+Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 8)
+
+local Header = Instance.new("Frame", Main)
+Header.Size = UDim2.new(1, 0, 0, 30); Header.BackgroundColor3 = Color3.fromRGB(40, 100, 150)
+Instance.new("UICorner", Header).CornerRadius = UDim.new(0, 8)
+local Title = Instance.new("TextLabel", Header)
+Title.Size = UDim2.new(1, -60, 1, 0); Title.Position = UDim2.new(0, 10, 0, 0)
+Title.BackgroundTransparency = 1; Title.Text = "🚀 ALTITUDE HUB V3"; Title.TextColor3 = Color3.new(1,1,1); Title.Font = Enum.Font.GothamBold; Title.TextXAlignment = Enum.TextXAlignment.Left
+
+local MinBtn = Instance.new("TextButton", Header); MinBtn.Size = UDim2.new(0, 30, 0, 30); MinBtn.Position = UDim2.new(1, -60, 0, -2); MinBtn.BackgroundTransparency = 1; MinBtn.Text = "_"; MinBtn.TextColor3 = Color3.new(1,1,1); MinBtn.Font = Enum.Font.GothamBold
+local CloseBtn = Instance.new("TextButton", Header); CloseBtn.Size = UDim2.new(0, 30, 0, 30); CloseBtn.Position = UDim2.new(1, -30, 0, 0); CloseBtn.BackgroundTransparency = 1; CloseBtn.Text = "X"; CloseBtn.TextColor3 = Color3.fromRGB(255, 100, 100); CloseBtn.Font = Enum.Font.GothamBold
+local Content = Instance.new("ScrollingFrame", Main); Content.Size = UDim2.new(1, -10, 1, -35); Content.Position = UDim2.new(0, 5, 0, 35); Content.BackgroundTransparency = 1; Content.ScrollBarThickness = 0; Instance.new("UIListLayout", Content).Padding = UDim.new(0, 6)
+
+CloseBtn.MouseButton1Click:Connect(function() Gui:Destroy() end)
+local minimized = false
+MinBtn.MouseButton1Click:Connect(function() minimized = not minimized; Main.Size = minimized and UDim2.new(0, 260, 0, 30) or UDim2.new(0, 260, 0, 380); Content.Visible = not minimized end)
+
+local AlertText = Instance.new("TextLabel", Content)
+AlertText.Size = UDim2.new(1, -10, 0, 25)
+AlertText.BackgroundTransparency = 1; AlertText.TextColor3 = Color3.fromRGB(200, 255, 200)
+AlertText.Font = Enum.Font.GothamSemibold; AlertText.TextSize = 12; AlertText.TextWrapped = true
+AlertText.Text = "Status: Siap Memanjat! 🧗‍♂️"
+
+-- [[ 2. SISTEM STATE & TOMBOL ]]
+local State = { 
+    InfJump = false, 
+    SuperStats = false, 
+    UpWarp = false,
+    AntiKill = false 
+}
+local SavedPosition = nil -- Untuk sistem Checkpoint
+
+local function AddToggle(text, stateKey, colorOn)
+    local b = Instance.new("TextButton", Content)
+    b.Size = UDim2.new(1, -10, 0, 35); b.BackgroundColor3 = Color3.fromRGB(40, 45, 55)
+    b.Text = text .. " [OFF]"; b.TextColor3 = Color3.new(1,1,1); b.Font = Enum.Font.GothamSemibold
+    Instance.new("UICorner", b).CornerRadius = UDim.new(0, 6)
+    
+    b.MouseButton1Click:Connect(function()
+        State[stateKey] = not State[stateKey]
+        b.Text = text .. (State[stateKey] and " [ON]" or " [OFF]")
+        b.BackgroundColor3 = State[stateKey] and colorOn or Color3.fromRGB(40, 45, 55)
+        
+        -- Kembalikan Speed & Jump normal jika dimatikan
+        if stateKey == "SuperStats" and not State[stateKey] then
+            if lp.Character and lp.Character:FindFirstChild("Humanoid") then
+                lp.Character.Humanoid.WalkSpeed = 16
+                lp.Character.Humanoid.JumpPower = 50
+            end
+        end
+    end)
+    return b
+end
+
+AddToggle("🚀 Infinite Jump", "InfJump", Color3.fromRGB(150, 40, 180))
+AddToggle("⚡ Super Speed & Jump", "SuperStats", Color3.fromRGB(200, 150, 40))
+AddToggle("🔼 Up-Warp [Tekan V]", "UpWarp", Color3.fromRGB(40, 180, 100))
+AddToggle("🛡️ Anti-Kill (Abaikan Laser)", "AntiKill", Color3.fromRGB(180, 50, 50))
+
+-- Info Checkpoint
+local ChkInfo = Instance.new("TextLabel", Content)
+ChkInfo.Size = UDim2.new(1, -10, 0, 25); ChkInfo.BackgroundTransparency = 1
+ChkInfo.TextColor3 = Color3.fromRGB(200, 200, 200); ChkInfo.Font = Enum.Font.Gotham
+ChkInfo.TextSize = 11; ChkInfo.Text = "💾 [C] = Save Posisi | [X] = Load Posisi"
+
+-- [[ 3. LOGIKA FITUR (INFINITE JUMP & SUPER STATS) ]]
+
+-- Deteksi Lompat di udara
+UserInputService.JumpRequest:Connect(function()
+    if State.InfJump and lp.Character and lp.Character:FindFirstChild("Humanoid") then
+        lp.Character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+    end
+end)
+
+-- Paksa Super Speed & Jump agar tidak di-reset oleh game
+RunService.Heartbeat:Connect(function()
+    if State.SuperStats and lp.Character and lp.Character:FindFirstChild("Humanoid") then
+        lp.Character.Humanoid.WalkSpeed = 35 -- Lari lebih cepat
+        -- Cek apakah game pakai sistem JumpPower atau JumpHeight
+        if lp.Character.Humanoid.UseJumpPower then
+            lp.Character.Humanoid.JumpPower = 100
+        else
+            lp.Character.Humanoid.JumpHeight = 25
+        end
+    end
+end)
+
+-- [[ 4. LOGIKA HOTKEY (UP-WARP & CHECKPOINT) ]]
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end 
+    
+    local char = lp.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+    local root = char.HumanoidRootPart
+
+    -- Fitur UP-WARP (Blink ke atas)
+    if State.UpWarp and input.KeyCode == Enum.KeyCode.V then
+        -- Teleport 25 stud ke atas langsung
+        root.CFrame = root.CFrame + Vector3.new(0, 25, 0)
+        root.AssemblyLinearVelocity = Vector3.new(0, 0, 0) -- Hentikan momentum jatuh
+        AlertText.Text = "🔼 Blink Ke Atas!"
+    end
+    
+    -- Fitur CUSTOM CHECKPOINT (Save)
+    if input.KeyCode == Enum.KeyCode.C then
+        SavedPosition = root.CFrame
+        AlertText.Text = "💾 Posisi Disimpan!"
+        AlertText.TextColor3 = Color3.fromRGB(100, 255, 100)
+    end
+    
+    -- Fitur CUSTOM CHECKPOINT (Load)
+    if input.KeyCode == Enum.KeyCode.X then
+        if SavedPosition then
+            root.CFrame = SavedPosition
+            root.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+            AlertText.Text = "🔙 Kembali ke Checkpoint!"
+            AlertText.TextColor3 = Color3.fromRGB(100, 200, 255)
+        else
+            AlertText.Text = "⚠️ Belum ada posisi yang disave (Tekan C)"
+            AlertText.TextColor3 = Color3.fromRGB(255, 100, 100)
+        end
+    end
+    
+    task.delay(2, function() 
+        AlertText.Text = "Status: Siap Memanjat! 🧗‍♂️"
+        AlertText.TextColor3 = Color3.fromRGB(200, 255, 200)
+    end)
+end)
+
+-- [[ 5. LOGIKA HAPUS JEBAKAN (PINTAR/ANTI-RUSAK CHECKPOINT) ]]
+task.spawn(function()
+    while task.wait(1) do
+        if State.AntiKill then
+            for _, v in pairs(Workspace:GetDescendants()) do
+                if v:IsA("BasePart") then
+                    -- Cek jika ada fungsi sentuh
+                    local touch = v:FindFirstChildOfClass("TouchTransmitter")
+                    -- PENGECUALIAN: Jangan matikan part jika itu Checkpoint (SpawnLocation) atau warnanya hijau (biasanya tujuan aman)
+                    if touch and not v:IsA("SpawnLocation") and v.BrickColor.Name ~= "Lime green" and v.BrickColor.Name ~= "Bright green" then
+                        v.CanTouch = false
+                        v.Transparency = 0.8
+                    end
+                end
+            end
+        end
+    end
+end)
