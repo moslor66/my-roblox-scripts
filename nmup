@@ -1,0 +1,234 @@
+-- ==================================================
+-- 🏥 THE MORGUE SHIFT - LITE VERSION V2 (MAX STEALTH)
+-- ==================================================
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local CoreGui = game:GetService("CoreGui")
+local ProximityPromptService = game:GetService("ProximityPromptService")
+local Lighting = game:GetService("Lighting")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+local lp = Players.LocalPlayer
+
+-- Menghapus GUI lama jika script dieksekusi berkali-kali
+if CoreGui:FindFirstChild("MorgueTransport") then
+    CoreGui.MorgueTransport:Destroy()
+end
+
+-- [[ 1. UI SETUP PRO ]]
+local Gui = Instance.new("ScreenGui")
+Gui.Name = "MorgueTransport"
+Gui.Parent = (gethui and gethui()) or CoreGui
+
+local Main = Instance.new("Frame", Gui)
+Main.Size = UDim2.new(0, 240, 0, 330) -- Diperbesar sedikit untuk menu baru
+Main.Position = UDim2.new(0.5, -120, 0.5, -165)
+Main.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+Main.Active = true
+Main.Draggable = true
+Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 8)
+
+local Header = Instance.new("Frame", Main)
+Header.Size = UDim2.new(1, 0, 0, 30)
+Header.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+Instance.new("UICorner", Header).CornerRadius = UDim.new(0, 8)
+
+local Title = Instance.new("TextLabel", Header)
+Title.Size = UDim2.new(1, -60, 1, 0)
+Title.Position = UDim2.new(0, 10, 0, 0)
+Title.BackgroundTransparency = 1
+Title.Text = "TRANSPORTER V2"
+Title.TextColor3 = Color3.new(1, 1, 1)
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 14
+Title.TextXAlignment = Enum.TextXAlignment.Left
+
+-- Tombol Navigasi (Minimize & Close)
+local MinBtn = Instance.new("TextButton", Header)
+MinBtn.Size = UDim2.new(0, 30, 0, 30)
+MinBtn.Position = UDim2.new(1, -60, 0, -2)
+MinBtn.BackgroundTransparency = 1
+MinBtn.Text = "_"
+MinBtn.TextColor3 = Color3.new(1, 1, 1)
+MinBtn.Font = Enum.Font.GothamBold
+MinBtn.TextSize = 16
+
+local CloseBtn = Instance.new("TextButton", Header)
+CloseBtn.Size = UDim2.new(0, 30, 0, 30)
+CloseBtn.Position = UDim2.new(1, -30, 0, 0)
+CloseBtn.BackgroundTransparency = 1
+CloseBtn.Text = "X"
+CloseBtn.TextColor3 = Color3.fromRGB(255, 80, 80)
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.TextSize = 14
+
+local Content = Instance.new("ScrollingFrame", Main)
+Content.Size = UDim2.new(1, -10, 1, -35)
+Content.Position = UDim2.new(0, 5, 0, 35)
+Content.BackgroundTransparency = 1
+Content.ScrollBarThickness = 2
+Content.BorderSizePixel = 0
+
+local UIListLayout = Instance.new("UIListLayout", Content)
+UIListLayout.Padding = UDim.new(0, 6)
+UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+-- Auto Resize Canvas
+UIListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    Content.CanvasSize = UDim2.new(0, 0, 0, UIListLayout.AbsoluteContentSize.Y + 10)
+end)
+
+-- Logika Tombol Navigasi
+CloseBtn.MouseButton1Click:Connect(function() Gui:Destroy() end)
+local minimized = false
+MinBtn.MouseButton1Click:Connect(function()
+    minimized = not minimized
+    Main.Size = minimized and UDim2.new(0, 240, 0, 30) or UDim2.new(0, 240, 0, 330)
+    Content.Visible = not minimized
+end)
+
+-- [[ 2. LOGIKA FITUR TRANSPORT ]]
+local State = { Instant = false, Speed = false, Fullbright = false, InfJump = false, Noclip = false, DupePrompt = false }
+
+local function AddToggle(text, stateKey, callback)
+    local b = Instance.new("TextButton", Content)
+    b.Size = UDim2.new(1, -5, 0, 35)
+    b.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
+    b.Text = text .. " [OFF]"
+    b.TextColor3 = Color3.new(1, 1, 1)
+    b.Font = Enum.Font.GothamSemibold
+    b.TextSize = 13
+    Instance.new("UICorner", b).CornerRadius = UDim.new(0, 6)
+    
+    b.MouseButton1Click:Connect(function()
+        State[stateKey] = not State[stateKey]
+        b.Text = text .. (State[stateKey] and " [ON]" or " [OFF]")
+        b.BackgroundColor3 = State[stateKey] and Color3.fromRGB(40, 120, 40) or Color3.fromRGB(50, 50, 55)
+        if callback then callback(State[stateKey]) end
+    end)
+end
+
+local function AddButton(text, callback)
+    local b = Instance.new("TextButton", Content)
+    b.Size = UDim2.new(1, -5, 0, 35)
+    b.BackgroundColor3 = Color3.fromRGB(120, 80, 40) -- Warna beda untuk tombol eksekusi
+    b.Text = text
+    b.TextColor3 = Color3.new(1, 1, 1)
+    b.Font = Enum.Font.GothamSemibold
+    b.TextSize = 13
+    Instance.new("UICorner", b).CornerRadius = UDim.new(0, 6)
+    
+    b.MouseButton1Click:Connect(function()
+        -- Efek klik
+        b.BackgroundColor3 = Color3.fromRGB(150, 100, 50)
+        task.delay(0.1, function() b.BackgroundColor3 = Color3.fromRGB(120, 80, 40) end)
+        if callback then callback() end
+    end)
+end
+
+-- A. INSTANT INTERACT & DUPE PROMPT
+AddToggle("⚡ Instant Interact", "Instant")
+AddToggle("📦 Dupe Item (Spam Prompt)", "DupePrompt") -- Fitur baru 1
+
+ProximityPromptService.PromptButtonHoldBegan:Connect(function(prompt, player)
+    if player == lp then
+        if State.DupePrompt and fireproximityprompt then
+            -- Spam 30x interact dalam 1 detik untuk menggandakan claim
+            for i = 1, 30 do
+                task.spawn(function()
+                    fireproximityprompt(prompt)
+                end)
+            end
+        elseif State.Instant then
+            if fireproximityprompt then
+                fireproximityprompt(prompt)
+            else
+                local originalHold = prompt.HoldDuration
+                prompt.HoldDuration = 0
+                task.delay(0.05, function() prompt.HoldDuration = originalHold end)
+            end
+        end
+    end
+end)
+
+-- B. DUPE CLAIM VIA REMOTE EVENT
+AddButton("💰 Dupe Claim (Remote)", function()
+    -- !!! PENTING: Ganti tulisan di bawah dengan path RemoteEvent Claim di The Morgue Shift
+    -- Gunakan SimpleSpy untuk mencari RemoteEvent yang dipakai saat claim
+    local remotePath = nil 
+    -- Contoh isi jika sudah ketemu: game:GetService("ReplicatedStorage").Remotes.ClaimReward
+
+    if remotePath and remotePath:IsA("RemoteEvent") then
+        for i = 1, 50 do -- Mengirim 50 permintaan sekaligus sebelum server merespon
+            task.spawn(function()
+                remotePath:FireServer() 
+                -- Jika butuh argumen tambahan, masukkan di dalam kurung FireServer(). Contoh: FireServer("Money", 500)
+            end)
+        end
+        print("Dupe Claim Executed 50x!")
+    else
+        warn("Remote Event belum di-setting di script! Baca script line 133.")
+    end
+end)
+
+-- C. SPEED LARI (Lebih Stabil)
+local originalSpeed = 10
+AddToggle("🏃 Speed Lari (Aman)", "Speed")
+RunService.RenderStepped:Connect(function()
+    local hum = lp.Character and lp.Character:FindFirstChild("Humanoid")
+    if hum then
+        if State.Speed then
+            if hum.WalkSpeed < 16 then
+                originalSpeed = hum.WalkSpeed
+                hum.WalkSpeed = 16
+            end
+        else
+            if hum.WalkSpeed == 16 then
+                hum.WalkSpeed = originalSpeed
+            end
+        end
+    end
+end)
+
+-- D. FULLBRIGHT
+local origAmbient, origOutdoorAmbient, origShadows
+AddToggle("☀️ Fullbright", "Fullbright", function(isOn)
+    if isOn then
+        origAmbient = Lighting.Ambient
+        origOutdoorAmbient = Lighting.OutdoorAmbient
+        origShadows = Lighting.GlobalShadows
+        Lighting.Ambient = Color3.fromRGB(255, 255, 255)
+        Lighting.OutdoorAmbient = Color3.fromRGB(255, 255, 255)
+        Lighting.GlobalShadows = false
+    else
+        if origAmbient then
+            Lighting.Ambient = origAmbient
+            Lighting.OutdoorAmbient = origOutdoorAmbient
+            Lighting.GlobalShadows = origShadows
+        end
+    end
+end)
+
+-- E. INFINITE JUMP
+AddToggle("🦘 Infinite Jump", "InfJump")
+UserInputService.JumpRequest:Connect(function()
+    if State.InfJump then
+        local hum = lp.Character and lp.Character:FindFirstChild("Humanoid")
+        if hum then
+            hum:ChangeState(Enum.HumanoidStateType.Jumping)
+        end
+    end
+end)
+
+-- F. NOCLIP
+AddToggle("👻 Noclip", "Noclip")
+RunService.Stepped:Connect(function()
+    if State.Noclip and lp.Character then
+        for _, part in pairs(lp.Character:GetDescendants()) do
+            if part:IsA("BasePart") and part.CanCollide then
+                part.CanCollide = false
+            end
+        end
+    end
+end)
