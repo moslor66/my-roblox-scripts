@@ -1,0 +1,312 @@
+-- ==================================================
+-- 🏥 THE MORGUE SHIFT - TRANSPORTER V5 (ENTITY DETECT)
+-- ==================================================
+local Players = game:GetService("Players")
+local CoreGui = game:GetService("CoreGui")
+local ProximityPromptService = game:GetService("ProximityPromptService")
+local Lighting = game:GetService("Lighting")
+local RunService = game:GetService("RunService")
+
+local lp = Players.LocalPlayer
+
+if CoreGui:FindFirstChild("MorgueTransport") then
+    CoreGui.MorgueTransport:Destroy()
+end
+
+local Connections = {}
+local TaskHighlights = {}
+local EntityESPFolder = Instance.new("Folder", CoreGui)
+EntityESPFolder.Name = "MorgueEntityESP"
+
+-- [[ 1. SETUP UI STEALTH ]]
+local Gui = Instance.new("ScreenGui")
+Gui.Name = "MorgueTransport"
+Gui.Parent = (gethui and gethui()) or CoreGui
+
+local Main = Instance.new("Frame", Gui)
+Main.Size = UDim2.new(0, 240, 0, 290)
+Main.Position = UDim2.new(0.5, -120, 0.5, -145)
+Main.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+Main.Active = true
+Main.Draggable = true
+Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 8)
+
+local Header = Instance.new("Frame", Main)
+Header.Size = UDim2.new(1, 0, 0, 30)
+Header.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+Instance.new("UICorner", Header).CornerRadius = UDim.new(0, 8)
+
+local Title = Instance.new("TextLabel", Header)
+Title.Size = UDim2.new(1, -60, 1, 0)
+Title.Position = UDim2.new(0, 10, 0, 0)
+Title.BackgroundTransparency = 1
+Title.Text = "TRANSPORTER V5"
+Title.TextColor3 = Color3.fromRGB(240, 240, 240)
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 12
+Title.TextXAlignment = Enum.TextXAlignment.Left
+
+local MinBtn = Instance.new("TextButton", Header)
+MinBtn.Size = UDim2.new(0, 30, 0, 30)
+MinBtn.Position = UDim2.new(1, -60, 0, -2)
+MinBtn.BackgroundTransparency = 1
+MinBtn.Text = "_"
+MinBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+MinBtn.Font = Enum.Font.GothamBold
+MinBtn.TextSize = 16
+
+local CloseBtn = Instance.new("TextButton", Header)
+CloseBtn.Size = UDim2.new(0, 30, 0, 30)
+CloseBtn.Position = UDim2.new(1, -30, 0, 0)
+CloseBtn.BackgroundTransparency = 1
+CloseBtn.Text = "X"
+CloseBtn.TextColor3 = Color3.fromRGB(255, 80, 80)
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.TextSize = 14
+
+local Content = Instance.new("ScrollingFrame", Main)
+Content.Size = UDim2.new(1, -10, 1, -35)
+Content.Position = UDim2.new(0, 5, 0, 35)
+Content.BackgroundTransparency = 1
+Content.ScrollBarThickness = 2
+Content.BorderSizePixel = 0
+
+local UIListLayout = Instance.new("UIListLayout", Content)
+UIListLayout.Padding = UDim.new(0, 6)
+UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+UIListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    Content.CanvasSize = UDim2.new(0, 0, 0, UIListLayout.AbsoluteContentSize.Y + 6)
+end)
+
+local minimized = false
+MinBtn.MouseButton1Click:Connect(function()
+    minimized = not minimized
+    Main.Size = minimized and UDim2.new(0, 240, 0, 30) or UDim2.new(0, 240, 0, 290)
+    Content.Visible = not minimized
+end)
+
+-- [[ 2. LOGIKA FITUR TRANSPORTER ]]
+local State = { 
+    FastInteract = false, 
+    Speed = false, 
+    Fullbright = false, 
+    NoFog = false, 
+    TaskESP = false,
+    EntityESP = false
+}
+
+local function AddToggle(text, stateKey, callback)
+    local b = Instance.new("TextButton", Content)
+    b.Size = UDim2.new(1, -5, 0, 32)
+    b.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
+    b.Text = text .. " [OFF]"
+    b.TextColor3 = Color3.fromRGB(220, 220, 220)
+    b.Font = Enum.Font.GothamSemibold
+    b.TextSize = 11
+    Instance.new("UICorner", b).CornerRadius = UDim.new(0, 6)
+    
+    b.MouseButton1Click:Connect(function()
+        State[stateKey] = not State[stateKey]
+        b.Text = text .. (State[stateKey] and " [ON]" or " [OFF]")
+        b.BackgroundColor3 = State[stateKey] and Color3.fromRGB(40, 130, 60) or Color3.fromRGB(45, 45, 50)
+        if callback then callback(State[stateKey]) end
+    end)
+end
+
+-- A. FAST INTERACT (~0.15s)
+AddToggle("⚡ Fast Interact (Aman)", "FastInteract")
+Connections.Prompt = ProximityPromptService.PromptButtonHoldBegan:Connect(function(prompt, player)
+    if State.FastInteract and player == lp then
+        local originalHold = prompt.HoldDuration
+        if originalHold > 0.15 then
+            prompt.HoldDuration = 0.15
+            task.delay(0.2, function()
+                if prompt and prompt.Parent then
+                    prompt.HoldDuration = originalHold
+                end
+            end)
+        end
+    end
+end)
+
+-- B. SPEED LARI AMAN
+local NORMAL_SPEED = 8
+local BOOST_SPEED = 12
+
+AddToggle("🏃 Speed Lari (12 Speed)", "Speed")
+Connections.SpeedLoop = RunService.Heartbeat:Connect(function()
+    local hum = lp.Character and lp.Character:FindFirstChildOfClass("Humanoid")
+    if hum then
+        if State.Speed then
+            if hum.WalkSpeed ~= BOOST_SPEED then hum.WalkSpeed = BOOST_SPEED end
+        else
+            if hum.WalkSpeed == BOOST_SPEED then hum.WalkSpeed = NORMAL_SPEED end
+        end
+    end
+end)
+
+-- C. FULLBRIGHT
+local origAmbient = Lighting.Ambient
+local origOutdoorAmbient = Lighting.OutdoorAmbient
+local origShadows = Lighting.GlobalShadows
+
+AddToggle("☀️ Fullbright", "Fullbright", function(isOn)
+    if isOn then
+        Lighting.Ambient = Color3.fromRGB(255, 255, 255)
+        Lighting.OutdoorAmbient = Color3.fromRGB(255, 255, 255)
+        Lighting.GlobalShadows = false
+    else
+        Lighting.Ambient = origAmbient
+        Lighting.OutdoorAmbient = origOutdoorAmbient
+        Lighting.GlobalShadows = origShadows
+    end
+end)
+
+-- D. NO FOG
+local origFogEnd = Lighting.FogEnd
+local atmo = Lighting:FindFirstChildOfClass("Atmosphere")
+local origAtmoDensity = atmo and atmo.Density or 0
+
+AddToggle("🌫️ No Fog (Pandangan Jelas)", "NoFog", function(isOn)
+    if isOn then
+        Lighting.FogEnd = 9e9
+        if atmo then atmo.Density = 0 end
+    else
+        Lighting.FogEnd = origFogEnd
+        if atmo then atmo.Density = origAtmoDensity end
+    end
+end)
+
+-- E. TASK ESP
+local function ClearTaskHighlights()
+    for _, h in pairs(TaskHighlights) do
+        if h then h:Destroy() end
+    end
+    TaskHighlights = {}
+end
+
+AddToggle("📍 Task ESP (Highlight Interaksi)", "TaskESP", function(isOn)
+    if not isOn then ClearTaskHighlights() end
+end)
+
+Connections.TaskLoop = RunService.Heartbeat:Connect(function()
+    if State.TaskESP then
+        for _, prompt in pairs(workspace:GetDescendants()) do
+            if prompt:IsA("ProximityPrompt") and prompt.Enabled then
+                local parent = prompt.Parent
+                if parent and parent:IsA("BasePart") and not parent:FindFirstChild("TaskHighlight") then
+                    local hl = Instance.new("Highlight")
+                    hl.Name = "TaskHighlight"
+                    hl.FillColor = Color3.fromRGB(0, 255, 150)
+                    hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+                    hl.FillTransparency = 0.5
+                    hl.OutlineTransparency = 0.2
+                    hl.Adornee = parent
+                    hl.Parent = parent
+                    table.insert(TaskHighlights, hl)
+                end
+            end
+        end
+    end
+end)
+
+-- F. ENTITY ESP & WARNING ALERT
+local function IsEntity(model)
+    if not model:IsA("Model") or model == lp.Character then return false end
+    if Players:GetPlayerFromCharacter(model) then return false end
+    local hum = model:FindFirstChildOfClass("Humanoid")
+    local root = model:FindFirstChild("HumanoidRootPart") or model:FindFirstChild("Head") or model.PrimaryPart
+    return (hum or root) ~= nil
+end
+
+local function ClearEntityESP()
+    EntityESPFolder:ClearAllChildren()
+end
+
+AddToggle("👹 Entity ESP & Alert", "EntityESP", function(isOn)
+    if not isOn then 
+        ClearEntityESP() 
+        Title.Text = "TRANSPORTER V5"
+        Title.TextColor3 = Color3.fromRGB(240, 240, 240)
+    end
+end)
+
+Connections.EntityLoop = RunService.Heartbeat:Connect(function()
+    if not State.EntityESP then return end
+    
+    local myRoot = lp.Character and (lp.Character:FindFirstChild("HumanoidRootPart") or lp.Character:FindFirstChild("Head"))
+    local nearbyAlert = false
+    
+    for _, obj in pairs(workspace:GetDescendants()) do
+        if IsEntity(obj) then
+            local root = obj:FindFirstChild("HumanoidRootPart") or obj:FindFirstChild("Head") or obj.PrimaryPart
+            if root then
+                -- Highlight
+                if not obj:FindFirstChild("EntityHighlight") then
+                    local hl = Instance.new("Highlight")
+                    hl.Name = "EntityHighlight"
+                    hl.FillColor = Color3.fromRGB(255, 0, 50)
+                    hl.OutlineColor = Color3.fromRGB(255, 255, 0)
+                    hl.FillTransparency = 0.3
+                    hl.Adornee = obj
+                    hl.Parent = obj
+                end
+                
+                -- Billboard Jarak
+                local tag = EntityESPFolder:FindFirstChild(obj.Name .. "_Tag")
+                if not tag then
+                    tag = Instance.new("BillboardGui", EntityESPFolder)
+                    tag.Name = obj.Name .. "_Tag"
+                    tag.Size = UDim2.new(0, 120, 0, 30)
+                    tag.AlwaysOnTop = true
+                    
+                    local txt = Instance.new("TextLabel", tag)
+                    txt.Size = UDim2.new(1, 0, 1, 0)
+                    txt.BackgroundTransparency = 1
+                    txt.TextColor3 = Color3.fromRGB(255, 60, 60)
+                    txt.Font = Enum.Font.GothamBold
+                    txt.TextSize = 12
+                end
+                
+                tag.Adornee = root
+                if myRoot then
+                    local dist = math.floor((myRoot.Position - root.Position).Magnitude)
+                    tag.TextLabel.Text = "⚠️ " .. obj.Name .. " [" .. dist .. "m]"
+                    if dist <= 40 then nearbyAlert = true end
+                end
+            end
+        end
+    end
+    
+    -- Visual Warning di Header GUI
+    if nearbyAlert then
+        Title.Text = "⚠️ MONSTER DEKAT! ⚠️"
+        Title.TextColor3 = Color3.fromRGB(255, 50, 50)
+    else
+        Title.Text = "TRANSPORTER V5"
+        Title.TextColor3 = Color3.fromRGB(240, 240, 240)
+    end
+end)
+
+-- [[ 3. CLEANUP SERVICE ]]
+CloseBtn.MouseButton1Click:Connect(function()
+    local hum = lp.Character and lp.Character:FindFirstChildOfClass("Humanoid")
+    if hum then hum.WalkSpeed = NORMAL_SPEED end
+    
+    Lighting.Ambient = origAmbient
+    Lighting.OutdoorAmbient = origOutdoorAmbient
+    Lighting.GlobalShadows = origShadows
+    Lighting.FogEnd = origFogEnd
+    if atmo then atmo.Density = origAtmoDensity end
+
+    ClearTaskHighlights()
+    ClearEntityESP()
+    EntityESPFolder:Destroy()
+
+    for _, conn in pairs(Connections) do
+        if conn then conn:Disconnect() end
+    end
+
+    Gui:Destroy()
+end)
