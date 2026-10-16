@@ -1,29 +1,30 @@
 -- ==================================================
--- 🏥 THE MORGUE SHIFT - LITE VERSION V2 (MAX STEALTH)
+-- 🏥 THE MORGUE SHIFT - TRANSPORTER V5 (+ NOCLIP & FIX ESP)
 -- ==================================================
 local Players = game:GetService("Players")
-local Workspace = game:GetService("Workspace")
 local CoreGui = game:GetService("CoreGui")
 local ProximityPromptService = game:GetService("ProximityPromptService")
 local Lighting = game:GetService("Lighting")
-local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 
 local lp = Players.LocalPlayer
 
--- Menghapus GUI lama jika script dieksekusi berkali-kali
 if CoreGui:FindFirstChild("MorgueTransport") then
     CoreGui.MorgueTransport:Destroy()
 end
 
--- [[ 1. UI SETUP PRO ]]
+local Connections = {}
+local EntityESPFolder = Instance.new("Folder", CoreGui)
+EntityESPFolder.Name = "MorgueEntityESP"
+
+-- [[ 1. SETUP UI STEALTH ]]
 local Gui = Instance.new("ScreenGui")
 Gui.Name = "MorgueTransport"
 Gui.Parent = (gethui and gethui()) or CoreGui
 
 local Main = Instance.new("Frame", Gui)
-Main.Size = UDim2.new(0, 240, 0, 270) -- Diperbesar untuk fitur baru
-Main.Position = UDim2.new(0.5, -120, 0.5, -135)
+Main.Size = UDim2.new(0, 240, 0, 215)
+Main.Position = UDim2.new(0.5, -120, 0.5, -107)
 Main.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
 Main.Active = true
 Main.Draggable = true
@@ -38,19 +39,18 @@ local Title = Instance.new("TextLabel", Header)
 Title.Size = UDim2.new(1, -60, 1, 0)
 Title.Position = UDim2.new(0, 10, 0, 0)
 Title.BackgroundTransparency = 1
-Title.Text = "TRANSPORTER V2"
-Title.TextColor3 = Color3.new(1, 1, 1)
+Title.Text = "TRANSPORTER V5"
+Title.TextColor3 = Color3.fromRGB(240, 240, 240)
 Title.Font = Enum.Font.GothamBold
-Title.TextSize = 14
+Title.TextSize = 12
 Title.TextXAlignment = Enum.TextXAlignment.Left
 
--- Tombol Navigasi (Minimize & Close)
 local MinBtn = Instance.new("TextButton", Header)
 MinBtn.Size = UDim2.new(0, 30, 0, 30)
 MinBtn.Position = UDim2.new(1, -60, 0, -2)
 MinBtn.BackgroundTransparency = 1
 MinBtn.Text = "_"
-MinBtn.TextColor3 = Color3.new(1, 1, 1)
+MinBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
 MinBtn.Font = Enum.Font.GothamBold
 MinBtn.TextSize = 16
 
@@ -68,112 +68,85 @@ Content.Size = UDim2.new(1, -10, 1, -35)
 Content.Position = UDim2.new(0, 5, 0, 35)
 Content.BackgroundTransparency = 1
 Content.ScrollBarThickness = 2
+Content.BorderSizePixel = 0
 
 local UIListLayout = Instance.new("UIListLayout", Content)
 UIListLayout.Padding = UDim.new(0, 6)
 UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 
--- Auto Resize Canvas
 UIListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-    Content.CanvasSize = UDim2.new(0, 0, 0, UIListLayout.AbsoluteContentSize.Y + 10)
+    Content.CanvasSize = UDim2.new(0, 0, 0, UIListLayout.AbsoluteContentSize.Y + 6)
 end)
 
--- Logika Tombol Navigasi
-CloseBtn.MouseButton1Click:Connect(function() Gui:Destroy() end)
 local minimized = false
 MinBtn.MouseButton1Click:Connect(function()
     minimized = not minimized
-    Main.Size = minimized and UDim2.new(0, 240, 0, 30) or UDim2.new(0, 240, 0, 270)
+    Main.Size = minimized and UDim2.new(0, 240, 0, 30) or UDim2.new(0, 240, 0, 215)
     Content.Visible = not minimized
 end)
 
--- [[ 2. LOGIKA FITUR TRANSPORT ]]
-local State = { Instant = false, Speed = false, Fullbright = false, InfJump = false, Noclip = false }
+-- [[ 2. LOGIKA FITUR TRANSPORTER ]]
+local State = { 
+    FastInteract = false, 
+    Speed = false,
+    Noclip = false, 
+    Fullbright = false, 
+    EntityESP = false
+}
 
 local function AddToggle(text, stateKey, callback)
     local b = Instance.new("TextButton", Content)
-    b.Size = UDim2.new(1, -5, 0, 35)
-    b.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
+    b.Size = UDim2.new(1, -5, 0, 32)
+    b.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
     b.Text = text .. " [OFF]"
-    b.TextColor3 = Color3.new(1, 1, 1)
+    b.TextColor3 = Color3.fromRGB(220, 220, 220)
     b.Font = Enum.Font.GothamSemibold
-    b.TextSize = 13
+    b.TextSize = 11
     Instance.new("UICorner", b).CornerRadius = UDim.new(0, 6)
     
     b.MouseButton1Click:Connect(function()
         State[stateKey] = not State[stateKey]
         b.Text = text .. (State[stateKey] and " [ON]" or " [OFF]")
-        b.BackgroundColor3 = State[stateKey] and Color3.fromRGB(40, 120, 40) or Color3.fromRGB(50, 50, 55)
+        b.BackgroundColor3 = State[stateKey] and Color3.fromRGB(40, 130, 60) or Color3.fromRGB(45, 45, 50)
         if callback then callback(State[stateKey]) end
     end)
 end
 
--- A. INSTANT INTERACT (MAX STEALTH)
-AddToggle("⚡ Instant Interact", "Instant")
-ProximityPromptService.PromptButtonHoldBegan:Connect(function(prompt, player)
-    if State.Instant and player == lp then
-        if fireproximityprompt then
-            fireproximityprompt(prompt)
-        else
-            local originalHold = prompt.HoldDuration
-            prompt.HoldDuration = 0
-            task.delay(0.05, function() prompt.HoldDuration = originalHold end)
+-- A. FAST INTERACT (~0.15s)
+AddToggle("⚡ Fast Interact (Aman)", "FastInteract")
+Connections.Prompt = ProximityPromptService.PromptButtonHoldBegan:Connect(function(prompt, player)
+    if State.FastInteract and player == lp then
+        local originalHold = prompt.HoldDuration
+        if originalHold > 0.15 then
+            prompt.HoldDuration = 0.15
+            task.delay(0.2, function()
+                if prompt and prompt.Parent then
+                    prompt.HoldDuration = originalHold
+                end
+            end)
         end
     end
 end)
 
--- B. SPEED LARI (Lebih Stabil Menggunakan RunService)
-local originalSpeed = 8
-AddToggle("🏃 Speed Lari (Aman)", "Speed")
-RunService.RenderStepped:Connect(function()
-    local hum = lp.Character and lp.Character:FindFirstChild("Humanoid")
+-- B. SPEED LARI (10 SPEED)
+local NORMAL_SPEED = 8
+local BOOST_SPEED = 10
+
+AddToggle("🏃 Speed Lari (10 Speed)", "Speed")
+Connections.SpeedLoop = RunService.Heartbeat:Connect(function()
+    local hum = lp.Character and lp.Character:FindFirstChildOfClass("Humanoid")
     if hum then
         if State.Speed then
-            if hum.WalkSpeed < 14 then
-                originalSpeed = hum.WalkSpeed
-                hum.WalkSpeed = 14 -- Kecepatan lari normal roblox
-            end
+            if hum.WalkSpeed ~= BOOST_SPEED then hum.WalkSpeed = BOOST_SPEED end
         else
-            if hum.WalkSpeed == 14 then
-                hum.WalkSpeed = originalSpeed
-            end
+            if hum.WalkSpeed == BOOST_SPEED then hum.WalkSpeed = NORMAL_SPEED end
         end
     end
 end)
 
--- C. FULLBRIGHT (Terang Benderang)
-local origAmbient, origOutdoorAmbient, origShadows
-AddToggle("☀️ Fullbright", "Fullbright", function(isOn)
-    if isOn then
-        origAmbient = Lighting.Ambient
-        origOutdoorAmbient = Lighting.OutdoorAmbient
-        origShadows = Lighting.GlobalShadows
-        Lighting.Ambient = Color3.fromRGB(255, 255, 255)
-        Lighting.OutdoorAmbient = Color3.fromRGB(255, 255, 255)
-        Lighting.GlobalShadows = false
-    else
-        if origAmbient then
-            Lighting.Ambient = origAmbient
-            Lighting.OutdoorAmbient = origOutdoorAmbient
-            Lighting.GlobalShadows = origShadows
-        end
-    end
-end)
-
--- D. INFINITE JUMP (Lompat Berkali-kali)
-AddToggle("🦘 Infinite Jump", "InfJump")
-UserInputService.JumpRequest:Connect(function()
-    if State.InfJump then
-        local hum = lp.Character and lp.Character:FindFirstChild("Humanoid")
-        if hum then
-            hum:ChangeState(Enum.HumanoidStateType.Jumping)
-        end
-    end
-end)
-
--- E. NOCLIP (Tembus Tembok)
-AddToggle("👻 Noclip", "Noclip")
-RunService.Stepped:Connect(function()
+-- C. NOCLIP (TEMBUS TEMBOK AMAN)
+AddToggle("👻 Noclip (Tembus Tembok)", "Noclip")
+Connections.NoclipLoop = RunService.Stepped:Connect(function()
     if State.Noclip and lp.Character then
         for _, part in pairs(lp.Character:GetDescendants()) do
             if part:IsA("BasePart") and part.CanCollide then
@@ -181,4 +154,171 @@ RunService.Stepped:Connect(function()
             end
         end
     end
+end)
+
+-- D. FULLBRIGHT
+local origAmbient = Lighting.Ambient
+local origOutdoorAmbient = Lighting.OutdoorAmbient
+local origShadows = Lighting.GlobalShadows
+
+AddToggle("☀️ Fullbright", "Fullbright", function(isOn)
+    if isOn then
+        Lighting.Ambient = Color3.fromRGB(255, 255, 255)
+        Lighting.OutdoorAmbient = Color3.fromRGB(255, 255, 255)
+        Lighting.GlobalShadows = false
+    else
+        Lighting.Ambient = origAmbient
+        Lighting.OutdoorAmbient = origOutdoorAmbient
+        Lighting.GlobalShadows = origShadows
+    end
+end)
+
+-- E. ENTITY ESP & WARNING ALERT
+local IGNORED_NAMES = {
+    "phone", "telephone", "door", "drawer", "table", "chair", "light", "lamp", 
+    "locker", "cabinet", "shelf", "stretcher", "bed", "computer", "camera", 
+    "morgue", "cart", "wheelchair", "box", "spawn", "desk", "clipboard", "key",
+    "tool", "flashlight", "battery", "prop", "wall", "room", "floor", "button",
+    "dress", "oldmaledress", "femaledress", "oldfemaledress", "maledress"
+}
+
+local function IsEntity(model)
+    if not model:IsA("Model") or model == lp.Character then return false end
+    if Players:GetPlayerFromCharacter(model) then return false end
+
+    local nameLower = model.Name:lower()
+
+    for _, ignore in ipairs(IGNORED_NAMES) do
+        if nameLower:find(ignore) then return false end
+    end
+
+    local hum = model:FindFirstChildOfClass("Humanoid")
+    local anim = model:FindFirstChildOfClass("AnimationController") or model:FindFirstChildOfClass("Animator", true)
+    local root = model:FindFirstChild("HumanoidRootPart") or model.PrimaryPart or model:FindFirstChild("Head")
+
+    if (hum or anim) and root then return true end
+
+    if (nameLower:find("monster") or nameLower:find("entity") or nameLower:find("ghost") or nameLower:find("creature") or nameLower:find("npc") or nameLower:find("anomaly") or nameLower:find("stalker")) and root then
+        return true
+    end
+
+    return false
+end
+
+local function ClearEntityESP()
+    EntityESPFolder:ClearAllChildren()
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj:IsA("Model") then
+            local hl = obj:FindFirstChild("EntityHighlight")
+            if hl then hl:Destroy() end
+        end
+    end
+end
+
+AddToggle("👹 Entity ESP & Alert", "EntityESP", function(isOn)
+    if not isOn then 
+        ClearEntityESP() 
+        Title.Text = "TRANSPORTER V5"
+        Title.TextColor3 = Color3.fromRGB(240, 240, 240)
+    end
+end)
+
+local activeEntities = {}
+task.spawn(function()
+    while true do
+        if State.EntityESP then
+            local found = {}
+            for _, obj in ipairs(workspace:GetDescendants()) do
+                if obj:IsA("Model") and IsEntity(obj) then
+                    table.insert(found, obj)
+                end
+            end
+            activeEntities = found
+        end
+        task.wait(0.5)
+    end
+end)
+
+Connections.EntityLoop = RunService.Heartbeat:Connect(function()
+    if not State.EntityESP then return end
+    
+    local myRoot = lp.Character and (lp.Character:FindFirstChild("HumanoidRootPart") or lp.Character:FindFirstChild("Head"))
+    local nearbyAlert = false
+    local currentTags = {}
+    
+    for _, obj in ipairs(activeEntities) do
+        if obj and obj.Parent then
+            local root = obj:FindFirstChild("HumanoidRootPart") or obj:FindFirstChild("Head") or obj.PrimaryPart
+            if root then
+                local hl = obj:FindFirstChild("EntityHighlight")
+                if not hl then
+                    hl = Instance.new("Highlight")
+                    hl.Name = "EntityHighlight"
+                    hl.FillColor = Color3.fromRGB(255, 0, 50)
+                    hl.OutlineColor = Color3.fromRGB(255, 255, 0)
+                    hl.FillTransparency = 0.3
+                    hl.Adornee = obj
+                    hl.Parent = obj
+                end
+                
+                local tagName = obj.Name .. "_" .. obj:GetDebugId()
+                local tag = EntityESPFolder:FindFirstChild(tagName)
+                if not tag then
+                    tag = Instance.new("BillboardGui", EntityESPFolder)
+                    tag.Name = tagName
+                    tag.Size = UDim2.new(0, 140, 0, 30)
+                    tag.AlwaysOnTop = true
+                    
+                    local txt = Instance.new("TextLabel", tag)
+                    txt.Size = UDim2.new(1, 0, 1, 0)
+                    txt.BackgroundTransparency = 1
+                    txt.TextColor3 = Color3.fromRGB(255, 60, 60)
+                    txt.Font = Enum.Font.GothamBold
+                    txt.TextSize = 12
+                end
+                
+                currentTags[tagName] = true
+                tag.Adornee = root
+                
+                if myRoot then
+                    local dist = math.floor((myRoot.Position - root.Position).Magnitude)
+                    tag.TextLabel.Text = "⚠️ " .. obj.Name .. " [" .. dist .. "m]"
+                    if dist <= 40 then nearbyAlert = true end
+                end
+            end
+        end
+    end
+    
+    for _, tag in ipairs(EntityESPFolder:GetChildren()) do
+        if not currentTags[tag.Name] then
+            tag:Destroy()
+        end
+    end
+    
+    if nearbyAlert then
+        Title.Text = "⚠️ MONSTER DEKAT! ⚠️"
+        Title.TextColor3 = Color3.fromRGB(255, 50, 50)
+    else
+        Title.Text = "TRANSPORTER V5"
+        Title.TextColor3 = Color3.fromRGB(240, 240, 240)
+    end
+end)
+
+-- [[ 3. CLEANUP SERVICE ]]
+CloseBtn.MouseButton1Click:Connect(function()
+    local hum = lp.Character and lp.Character:FindFirstChildOfClass("Humanoid")
+    if hum then hum.WalkSpeed = NORMAL_SPEED end
+    
+    Lighting.Ambient = origAmbient
+    Lighting.OutdoorAmbient = origOutdoorAmbient
+    Lighting.GlobalShadows = origShadows
+
+    ClearEntityESP()
+    EntityESPFolder:Destroy()
+
+    for _, conn in pairs(Connections) do
+        if conn then conn:Disconnect() end
+    end
+
+    Gui:Destroy()
 end)
