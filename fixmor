@@ -128,11 +128,11 @@ Connections.Prompt = ProximityPromptService.PromptButtonHoldBegan:Connect(functi
     end
 end)
 
--- B. SPEED LARI (10 SPEED)
+-- B. SPEED LARI (12 SPEED)
 local NORMAL_SPEED = 8
-local BOOST_SPEED = 10
+local BOOST_SPEED = 12
 
-AddToggle("🏃 Speed Lari (10 Speed)", "Speed")
+AddToggle("🏃 Speed Lari (12 Speed)", "Speed")
 Connections.SpeedLoop = RunService.Heartbeat:Connect(function()
     local hum = lp.Character and lp.Character:FindFirstChildOfClass("Humanoid")
     if hum then
