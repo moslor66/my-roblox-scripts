@@ -1,5 +1,5 @@
 -- ==================================================
--- 🏥 THE MORGUE SHIFT - TRANSPORTER V5 (+ NOCLIP)
+-- 🏥 THE MORGUE SHIFT - TRANSPORTER V5 (+ NOCLIP & FIX ESP)
 -- ==================================================
 local Players = game:GetService("Players")
 local CoreGui = game:GetService("CoreGui")
@@ -23,7 +23,7 @@ Gui.Name = "MorgueTransport"
 Gui.Parent = (gethui and gethui()) or CoreGui
 
 local Main = Instance.new("Frame", Gui)
-Main.Size = UDim2.new(0, 240, 0, 215) -- Diperpanjang sedikit untuk menu Noclip
+Main.Size = UDim2.new(0, 240, 0, 215)
 Main.Position = UDim2.new(0.5, -120, 0.5, -107)
 Main.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
 Main.Active = true
@@ -178,7 +178,8 @@ local IGNORED_NAMES = {
     "phone", "telephone", "door", "drawer", "table", "chair", "light", "lamp", 
     "locker", "cabinet", "shelf", "stretcher", "bed", "computer", "camera", 
     "morgue", "cart", "wheelchair", "box", "spawn", "desk", "clipboard", "key",
-    "tool", "flashlight", "battery", "prop", "wall", "room", "floor", "button"
+    "tool", "flashlight", "battery", "prop", "wall", "room", "floor", "button",
+    "dress", "oldmaledress", "femaledress", "oldfemaledress", "maledress"
 }
 
 local function IsEntity(model)
