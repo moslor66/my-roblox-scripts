@@ -1,5 +1,5 @@
 -- ==================================================
--- 🏥 THE MORGUE SHIFT - TRANSPORTER V5 (OPTIMIZED)
+-- 🏥 THE MORGUE SHIFT - TRANSPORTER V5 (+ NOCLIP)
 -- ==================================================
 local Players = game:GetService("Players")
 local CoreGui = game:GetService("CoreGui")
@@ -23,8 +23,8 @@ Gui.Name = "MorgueTransport"
 Gui.Parent = (gethui and gethui()) or CoreGui
 
 local Main = Instance.new("Frame", Gui)
-Main.Size = UDim2.new(0, 240, 0, 180)
-Main.Position = UDim2.new(0.5, -120, 0.5, -90)
+Main.Size = UDim2.new(0, 240, 0, 215) -- Diperpanjang sedikit untuk menu Noclip
+Main.Position = UDim2.new(0.5, -120, 0.5, -107)
 Main.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
 Main.Active = true
 Main.Draggable = true
@@ -81,14 +81,15 @@ end)
 local minimized = false
 MinBtn.MouseButton1Click:Connect(function()
     minimized = not minimized
-    Main.Size = minimized and UDim2.new(0, 240, 0, 30) or UDim2.new(0, 240, 0, 180)
+    Main.Size = minimized and UDim2.new(0, 240, 0, 30) or UDim2.new(0, 240, 0, 215)
     Content.Visible = not minimized
 end)
 
 -- [[ 2. LOGIKA FITUR TRANSPORTER ]]
 local State = { 
     FastInteract = false, 
-    Speed = false, 
+    Speed = false,
+    Noclip = false, 
     Fullbright = false, 
     EntityESP = false
 }
@@ -127,7 +128,7 @@ Connections.Prompt = ProximityPromptService.PromptButtonHoldBegan:Connect(functi
     end
 end)
 
--- B. SPEED LARI (DIUBAH KE 10)
+-- B. SPEED LARI (10 SPEED)
 local NORMAL_SPEED = 8
 local BOOST_SPEED = 10
 
@@ -143,7 +144,19 @@ Connections.SpeedLoop = RunService.Heartbeat:Connect(function()
     end
 end)
 
--- C. FULLBRIGHT
+-- C. NOCLIP (TEMBUS TEMBOK AMAN)
+AddToggle("👻 Noclip (Tembus Tembok)", "Noclip")
+Connections.NoclipLoop = RunService.Stepped:Connect(function()
+    if State.Noclip and lp.Character then
+        for _, part in pairs(lp.Character:GetDescendants()) do
+            if part:IsA("BasePart") and part.CanCollide then
+                part.CanCollide = false
+            end
+        end
+    end
+end)
+
+-- D. FULLBRIGHT
 local origAmbient = Lighting.Ambient
 local origOutdoorAmbient = Lighting.OutdoorAmbient
 local origShadows = Lighting.GlobalShadows
@@ -160,32 +173,45 @@ AddToggle("☀️ Fullbright", "Fullbright", function(isOn)
     end
 end)
 
--- D. ENTITY ESP & WARNING ALERT (OPTIMIZED)
-local function ClearEntityESP()
-    EntityESPFolder:ClearAllChildren()
-    for _, obj in pairs(workspace:GetDescendants()) do
-        local hl = obj:FindFirstChild("EntityHighlight")
-        if hl then hl:Destroy() end
-    end
-end
+-- E. ENTITY ESP & WARNING ALERT
+local IGNORED_NAMES = {
+    "phone", "telephone", "door", "drawer", "table", "chair", "light", "lamp", 
+    "locker", "cabinet", "shelf", "stretcher", "bed", "computer", "camera", 
+    "morgue", "cart", "wheelchair", "box", "spawn", "desk", "clipboard", "key",
+    "tool", "flashlight", "battery", "prop", "wall", "room", "floor", "button"
+}
 
--- Filter khusus entitas asli (menyaring prop/telepon/laci)
 local function IsEntity(model)
     if not model:IsA("Model") or model == lp.Character then return false end
     if Players:GetPlayerFromCharacter(model) then return false end
 
-    -- Abaikan barang interaktif (telepon, tombol, dll yang pakai ProximityPrompt)
-    if model:FindFirstChildOfClass("ProximityPrompt", true) then return false end
+    local nameLower = model.Name:lower()
+
+    for _, ignore in ipairs(IGNORED_NAMES) do
+        if nameLower:find(ignore) then return false end
+    end
 
     local hum = model:FindFirstChildOfClass("Humanoid")
+    local anim = model:FindFirstChildOfClass("AnimationController") or model:FindFirstChildOfClass("Animator", true)
     local root = model:FindFirstChild("HumanoidRootPart") or model.PrimaryPart or model:FindFirstChild("Head")
 
-    -- Hanya scan jika punya Humanoid aktif dengan Health > 0
-    if hum and hum.Health > 0 and root then
+    if (hum or anim) and root then return true end
+
+    if (nameLower:find("monster") or nameLower:find("entity") or nameLower:find("ghost") or nameLower:find("creature") or nameLower:find("npc") or nameLower:find("anomaly") or nameLower:find("stalker")) and root then
         return true
     end
 
     return false
+end
+
+local function ClearEntityESP()
+    EntityESPFolder:ClearAllChildren()
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj:IsA("Model") then
+            local hl = obj:FindFirstChild("EntityHighlight")
+            if hl then hl:Destroy() end
+        end
+    end
 end
 
 AddToggle("👹 Entity ESP & Alert", "EntityESP", function(isOn)
@@ -196,27 +222,19 @@ AddToggle("👹 Entity ESP & Alert", "EntityESP", function(isOn)
     end
 end)
 
--- Scanning berkala tiap 0.4 detik (jauh lebih ringan dari Heartbeat)
 local activeEntities = {}
-
 task.spawn(function()
     while true do
         if State.EntityESP then
             local found = {}
-            for _, obj in pairs(workspace:GetChildren()) do
-                if IsEntity(obj) then
+            for _, obj in ipairs(workspace:GetDescendants()) do
+                if obj:IsA("Model") and IsEntity(obj) then
                     table.insert(found, obj)
-                else
-                    for _, subObj in pairs(obj:GetChildren()) do
-                        if IsEntity(subObj) then
-                            table.insert(found, subObj)
-                        end
-                    end
                 end
             end
             activeEntities = found
         end
-        task.wait(0.4)
+        task.wait(0.5)
     end
 end)
 
@@ -225,14 +243,15 @@ Connections.EntityLoop = RunService.Heartbeat:Connect(function()
     
     local myRoot = lp.Character and (lp.Character:FindFirstChild("HumanoidRootPart") or lp.Character:FindFirstChild("Head"))
     local nearbyAlert = false
+    local currentTags = {}
     
-    for _, obj in pairs(activeEntities) do
+    for _, obj in ipairs(activeEntities) do
         if obj and obj.Parent then
             local root = obj:FindFirstChild("HumanoidRootPart") or obj:FindFirstChild("Head") or obj.PrimaryPart
             if root then
-                -- Highlight
-                if not obj:FindFirstChild("EntityHighlight") then
-                    local hl = Instance.new("Highlight")
+                local hl = obj:FindFirstChild("EntityHighlight")
+                if not hl then
+                    hl = Instance.new("Highlight")
                     hl.Name = "EntityHighlight"
                     hl.FillColor = Color3.fromRGB(255, 0, 50)
                     hl.OutlineColor = Color3.fromRGB(255, 255, 0)
@@ -241,12 +260,12 @@ Connections.EntityLoop = RunService.Heartbeat:Connect(function()
                     hl.Parent = obj
                 end
                 
-                -- Billboard Jarak
-                local tag = EntityESPFolder:FindFirstChild(obj.Name .. "_Tag")
+                local tagName = obj.Name .. "_" .. obj:GetDebugId()
+                local tag = EntityESPFolder:FindFirstChild(tagName)
                 if not tag then
                     tag = Instance.new("BillboardGui", EntityESPFolder)
-                    tag.Name = obj.Name .. "_Tag"
-                    tag.Size = UDim2.new(0, 120, 0, 30)
+                    tag.Name = tagName
+                    tag.Size = UDim2.new(0, 140, 0, 30)
                     tag.AlwaysOnTop = true
                     
                     local txt = Instance.new("TextLabel", tag)
@@ -257,7 +276,9 @@ Connections.EntityLoop = RunService.Heartbeat:Connect(function()
                     txt.TextSize = 12
                 end
                 
+                currentTags[tagName] = true
                 tag.Adornee = root
+                
                 if myRoot then
                     local dist = math.floor((myRoot.Position - root.Position).Magnitude)
                     tag.TextLabel.Text = "⚠️ " .. obj.Name .. " [" .. dist .. "m]"
@@ -267,7 +288,12 @@ Connections.EntityLoop = RunService.Heartbeat:Connect(function()
         end
     end
     
-    -- Visual Warning di Header GUI
+    for _, tag in ipairs(EntityESPFolder:GetChildren()) do
+        if not currentTags[tag.Name] then
+            tag:Destroy()
+        end
+    end
+    
     if nearbyAlert then
         Title.Text = "⚠️ MONSTER DEKAT! ⚠️"
         Title.TextColor3 = Color3.fromRGB(255, 50, 50)
